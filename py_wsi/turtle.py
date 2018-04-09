@@ -32,7 +32,7 @@ def end_timer(start_time):
 # The py-wsi main class for manipulating svs and patches. Turtles are the best.
 class Turtle(object):
 
-	def __init__(self, file_dir, db_location, db_name, xml_dir=False, label_map={}, ):
+	def __init__(self, file_dir, db_location, db_name, xml_dir=False, label_map={}):
 		self.file_dir = file_dir
 		self.db_location = db_location
 		self.db_name = db_name
