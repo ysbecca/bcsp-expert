@@ -112,7 +112,7 @@ class Turtle(object):
 		map_size_bytes = (patch_size*patch_size*3) * patches_expected * 10
 
 		# Save to specified database using specified method.
-		print("Creating new LMDB environment...")
+		print("Opening LMDB environment...")
 		env = new_lmdb(self.db_location, self.db_name, map_size_bytes)
 		meta_env = new_lmdb(self.db_location, self.db_meta_name, patches_expected*50)
 
@@ -122,20 +122,17 @@ class Turtle(object):
 
 		for file in self.files:
 			print(file, end=" ")
-			patches, coords, tile_dims, labels = sample_patches(
-										file, 
-										self.file_dir, 
-										overlap, 
-										patch_size=patch_size, 
-										level=level,
-										xml_dir=xml_dir,
-										label_map=self.label_map)
+			sample_patches(
+					env, meta_env,
+					file, 
+					self.file_dir, 
+					overlap, 
+					patch_size=patch_size, 
+					level=level,
+					xml_dir=xml_dir,
+					label_map=self.label_map)
 
-			patches = np.array(patches).astype(np.uint8)
 
-			# Write this file info to db in a single transaction.
-			save_in_lmdb(env, patches, coords, file, labels)
-			save_meta_in_lmdb(meta_env, file, tile_dims)
 
 		print("")
 		print("====== LMDB " + self.db_name + " Stats ======")

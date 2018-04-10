@@ -63,7 +63,7 @@ def get_regions(path):
 		regions.append(coords)
 	return regions, region_labels
 
-def sample_patches(file_name,
+def sample_patches(env, meta_env, file_name,
 				   file_dir,
 				   percent_overlap,
 				   patch_size=512,
@@ -71,14 +71,12 @@ def sample_patches(file_name,
 				   image_id=False,
 				   xml_dir=False,
 				   label_map={},
-				   exclude_background=False,
+				   exclude_background=True,
 				   ):
-	''' Sample patches of specified size from .svs file.
+	''' Sample patches of specified size from .svs file and save row by row.
 		- overlap: 0.5 is a 50% overlap; overlap = 0 means no overlap; overlap > 1.0 skips regions in 
 			proportion to size of tile
 		- level: 0 is highest resolution; level_count - 1 is lowest
-		
-		Returns arrays of patches, x,y coordinates, and parent image IDs (filename if not specified).
 
 		Note: patch_size is the dimension of the sampled patches, NOT equivalent to openslide's definition
 		of tile_size. This implementation was chosen to allow for more intuitive usage.
@@ -99,11 +97,14 @@ def sample_patches(file_name,
 		return
 	x_tiles, y_tiles = tiles.level_tiles[level]
 
-	patches, coords, labels = [], [], []
+	
 	x, y = 0, 0
 	count = 0
 	while y < y_tiles:
+
+		# Write each x row as a single transaction to avoid saving whole WSI in memory.
 		while x < x_tiles:
+			patches, coords, labels = [], [], []
 			new_tile = np.array(tiles.get_tile(level, (x, y)), dtype=np.int)
 			# OpenSlide calculates overlap in such a way that sometimes depending on the dimensions, edge 
 			# patches are smaller than the others. We will ignore such patches.
@@ -116,9 +117,15 @@ def sample_patches(file_name,
 				if xml_dir:
 					converted_coords = tiles.get_tile_coordinates(level, (x, y))[0]
 					labels.append(generate_label(regions, region_labels, converted_coords, label_map))
+			# Save to DB
+			patches = np.array(patches).astype(np.uint8)
+
+			# Write this file info to db in a single transaction.
+			save_in_lmdb(env, patches, coords, file, labels)
+
 			x += 1
 		y += 1
 		x = 0
 
-	return patches, np.array(coords), (x_tiles, y_tiles), np.array(labels)
+	save_meta_in_lmdb(meta_env, file, (x_tiles, y_tiles))
 
