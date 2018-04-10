@@ -12,7 +12,7 @@ from openslide.deepzoom import DeepZoomGenerator
 from glob import glob
 from xml.dom import minidom
 from shapely.geometry import Polygon, Point
-
+from .store import *
 
 def check_label_exists(label, label_map):
 	if label in label_map:
@@ -121,11 +121,11 @@ def sample_patches(env, meta_env, file_name,
 			patches = np.array(patches).astype(np.uint8)
 
 			# Write this file info to db in a single transaction.
-			save_in_lmdb(env, patches, coords, file, labels)
+			save_in_lmdb(env, patches, coords, file_name, labels)
 
 			x += 1
 		y += 1
 		x = 0
 
-	save_meta_in_lmdb(meta_env, file, (x_tiles, y_tiles))
+	save_meta_in_lmdb(meta_env, file_name, (x_tiles, y_tiles))
 
