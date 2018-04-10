@@ -79,6 +79,9 @@ class Turtle(object):
 	def __get_db_meta_name(self, db_name):
 		return db_name + "_meta"
 
+	def get_num_files(self):
+		return self.num_files
+
 	def set_label_map(self, label_map):
 		self.label_map = label_map
 
