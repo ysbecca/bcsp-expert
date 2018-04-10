@@ -32,10 +32,10 @@ level = 15
 overlap = 0.5
 
 for i in range(total_cases):
-	print("===== Case " + cases[i] + " =====")
+	print("===== Case " + str(cases[i][0]) + " =====")
 
 	# Create a Turtle manager for each case
-	case_turtle = Turtle(home_dir + folder_prefix + cases[0], db_location, db_name, xml_dir=False, label_map={})
+	case_turtle = Turtle(home_dir + folder_prefix + cases[i][0], db_location, db_name, xml_dir=False, label_map={})
 	print("Total WSI images:    " + str(turtle.num_files))
 	print("LMDB name:           " + str(turtle.db_name))
 	print("File names:          " + str(turtle.files))
