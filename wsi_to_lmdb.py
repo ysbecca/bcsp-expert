@@ -16,6 +16,10 @@ total_cases = len(cases)
 print("Cases and label meta-data read.")
 print("Total cases: " + str(len(cases)))
 
+
+print("TEST: only read in first case images...")
+cases = [cases[0]]
+
 # Now use py_wsi to read in the WSI and sample patches.
 
 home_dir = "/nobackup/sc16rsmy/bcsp-expert-cases/"
@@ -41,7 +45,7 @@ for i in range(total_cases):
 
 
 
-
+print("Done sampling from WSI and saving to LMDB.")
 
 
 
