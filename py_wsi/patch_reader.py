@@ -63,7 +63,7 @@ def get_regions(path):
 		regions.append(coords)
 	return regions, region_labels
 
-def sample_patches(env, meta_env, file_name,
+def sample_and_save_patches(db_location, lmdb_name, lmdb_meta_name, file_name,
 				   file_dir,
 				   percent_overlap,
 				   patch_size=512,
@@ -97,7 +97,13 @@ def sample_patches(env, meta_env, file_name,
 		return
 	x_tiles, y_tiles = tiles.level_tiles[level]
 
-	
+	# Calculate map size as accurately as possible for each DB.
+	map_size_bytes = (patch_size*patch_size*3) * patches_expected * 5
+
+	# Open new LMDB environments
+	env = new_lmdb(db_location, lmdb_name, map_size_bytes)
+	meta_env = new_lmdb(db_location, lmdb_meta_name, patches_expected*50)
+
 	x, y = 0, 0
 	count = 0
 	while y < y_tiles:

@@ -1,0 +1,22 @@
+
+CHANGE
+
+
+Make a separate LMDB for every WSI.
+
+case_no_image_name_lmdb
+case_no_image_name_lmdb_meta
+
+For example:
+
+Case_00001_101528_lmdb
+Case_00001_101528_lmdb_meta
+
+This way the database size is known and better able to be estimated.
+
+TRANSACTIONS
+
+Every row of patches from the WSI will be read and the patches saved as a single transaction.
+The map_size will be calculated using the x and y tile dimensions (number of patches per image) to minimise wasted space.
+
+
