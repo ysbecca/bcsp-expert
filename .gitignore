@@ -6,6 +6,13 @@ __pycache__/
 # C extensions
 *.so
 
+saved_images/
+py_wsi/
+test_annotations_roi/
+
+.DS_Store
+
+
 # Distribution / packaging
 .Python
 env/
