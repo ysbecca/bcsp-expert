@@ -7,7 +7,6 @@ __pycache__/
 *.so
 
 saved_images/
-py_wsi/
 test_annotations_roi/
 
 .DS_Store
