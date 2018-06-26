@@ -1,5 +1,11 @@
 import csv
 import numpy as np
+
+import sys
+
+sys.path.append("../")
+#sys.path.append("../py_wsi/")
+
 from py_wsi import *
 import time
 from datetime import timedelta
@@ -8,13 +14,14 @@ from datetime import timedelta
 
 start_time = time.time()
 
-csv_name = "training_cases_only.csv"
+csv_name = "/home/ufaserv1_k/sc16rsmy/bcsp-expert/data/training_cases_only.csv"
 cases = []
 with open(csv_name, 'r') as csvfile:
     r = csv.reader(csvfile, delimiter=',', quotechar='|')
     for row in r:
         cases.append(row[0])
 
+print(cases)
 # For testing limitations
 start_range = 0
 end_range = 2
@@ -35,7 +42,7 @@ folder_prefix = "Case_"
 db_location = "/nobackup/sc16rsmy/bcsp-lmdb/"
 db_name = "training_set_annotated"
 
-annotation_dir = "/sc16rsmy/bcsp-expert/annotations/training_set/"
+annotation_dir = "/home/ufaserv1_k/sc16rsmy/bcsp-expert/annotations/training_set/"
 
 patch_size = 128
 level = 15
@@ -44,19 +51,19 @@ overlap = 32 #in PIXELS
 label_map = {'SM': 0, 'EP': 1}
 
 manager = Turtle(home_dir + folder_prefix, 
-					db_location, 
-					db_name, 
-					xml_dir=annotation_dir, 
-					label_map=label_map, 
-					cases=cases)
+				db_location, 
+				db_name, 
+				xml_dir=annotation_dir, 
+				label_map=label_map, 
+				cases=cases)
 
 
 print("Total WSI images:    " + str(manager.num_files))
 print("LMDB name:           " + str(manager.db_name))
 print("File names:          " + str(manager.files))
 
-	# Now read the samples and store to LMDB.
-	case_turtle.sample_and_store_patches(patch_size, level, overlap, load_xml=False)
+# Now read the samples and store to LMDB.
+manager.sample_and_store_patches(patch_size, level, overlap, load_xml=True)
 
 
 print("Done sampling from all cases and saving to LMDB.")
