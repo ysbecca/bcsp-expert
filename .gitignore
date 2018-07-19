@@ -10,6 +10,9 @@ saved_images/
 test_annotations_roi/
 
 .DS_Store
+data/temp_db/
+data/wsi_json/
+data/wsi_samples/
 
 
 # Distribution / packaging
