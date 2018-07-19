@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 
 import csv
 
+import csv
+
 
 # Loads csv cases from file
 def load_cases(csv_name):

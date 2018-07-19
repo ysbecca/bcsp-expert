@@ -101,6 +101,17 @@ def generate_label(polys, region_labels, point):
     else:
         return -1 # not in any of the regions - unknown label
 
+def image_is_background(image):
+    '''
+    Determines using a simple threshold whether the patch is primarily background.
+    '''
+    threshold = 0.25
+    x, y, dim = np.shape(image)
+    if (np.count_nonzero(np.where(image > 210, 0, image))/(x*y*dim) < threshold):
+        return True
+    else:
+        return False
+
 
 def store_hdf5(patches, dir_path, coords, labels, csv_name):
     ''' Saves patches into hdf5 files, and meta into csv files '''
@@ -179,15 +190,18 @@ for case in cases:
                 # OpenSlide calculates overlap in such a way that sometimes depending on the dimensions, edge 
                 # patches are smaller than the others. We will ignore such patches.
                 if np.shape(new_tile) == (new_patch_dim, new_patch_dim, 3):
-                    patches.append(new_tile)
-                    coords.append(np.array([x, y]))
-                    count += 1
 
-                    # Calculate the patch label based on centre point.
-                    point = tiles.get_tile_coordinates(level, (x, y))[0]
-         
-                    point_ = (point[0]/annotation_downsample, point[1]/annotation_downsample)
-                    labels.append(generate_label(polys, region_labels, point_))
+                    # Because OpenSlide background detection does not detect slide very well...
+                    if not image_is_background(new_tile):
+                        patches.append(new_tile)
+                        coords.append(np.array([x, y]))
+                        count += 1
+
+                        # Calculate the patch label based on centre point.
+                        point = tiles.get_tile_coordinates(level, (x, y))[0]
+             
+                        point_ = (point[0]/annotation_downsample, point[1]/annotation_downsample)
+                        labels.append(generate_label(polys, region_labels, point_))
                     
                 x += 1
             y += 1
