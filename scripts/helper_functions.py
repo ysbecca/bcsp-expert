@@ -2,7 +2,6 @@ import time
 from datetime import timedelta
 import matplotlib.pyplot as plt
 
-import csv
 
 import csv
 
