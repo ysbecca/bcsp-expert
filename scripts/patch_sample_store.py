@@ -178,6 +178,8 @@ for case in cases:
         x, y = 0, 0
         count = 0
         patches, coords, labels = [], [], []
+        # Labeled patches stored separately
+        l_patches, l_coords, l_labels = [], [], []
 
         regions, region_labels = fetch_regions(image_id)
         polys = [Polygon(r) for r in regions]
@@ -193,16 +195,22 @@ for case in cases:
 
                     # Because OpenSlide background detection does not detect slide very well...
                     if not image_is_background(new_tile):
-                        patches.append(new_tile)
-                        coords.append(np.array([x, y]))
-                        count += 1
-
                         # Calculate the patch label based on centre point.
                         point = tiles.get_tile_coordinates(level, (x, y))[0]
              
                         point_ = (point[0]/annotation_downsample, point[1]/annotation_downsample)
-                        labels.append(generate_label(polys, region_labels, point_))
-                    
+                        new_label = generate_label(polys, region_labels, point_)
+                        new_coord = np.array([x, y])
+
+                        if new_label == -1: # Unknown label
+                            patches.append(new_tile)
+                            coords.append(new_coord)
+                            labels.append(new_label)
+                        else:
+                            l_patches.append(new_tile)
+                            l_coords.append(new_coord)
+                            l_labels.append(new_label)
+                        count += 1
                 x += 1
             y += 1
             x = 0
@@ -211,22 +219,28 @@ for case in cases:
         end_timer(start_time)
 
         # In[17]:
-
+        print("Unlabelled patches and meta: =====")
         print(np.shape(patches))
         print(np.shape(coords))
         print(np.shape(labels))
-
-
+        print("LABELLED patches and meta: =======")
+        print(np.shape(l_patches))
+        print(np.shape(l_coords))
+        print(np.shape(l_labels))
         # Save patches and meta in hdf5/csv files.
 
         # In[24]:
 
         # In[25]:
 
-        # Store images by image_id + seg + patch_size + level + downsample_factor
+        # Store images by image_id + seg + patch_size + level + downsample_factor + _L for label status
         csv_name = str(image_id) + "_seg_P" + str(patch_size) + "_L" + str(level) + "_D" + str(downsample_factor)
         store_hdf5(patches, test_db_dir, coords, labels, csv_name)
-
+        
+        # Save a separate labelled patch file if there are labels.
+        if len(l_patches) > 0:
+            csv_name += "_L"
+            store_hdf5(l_patches, test_db_dir, l_coords, l_labels, csv_name)
 
 # In[26]:
 
