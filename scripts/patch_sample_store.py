@@ -95,9 +95,12 @@ def generate_label(polys, region_labels, point):
     # point [x, y]
     
     # see if point is in any of regions provided
-    for i in range(len(region_labels)): 
-        if polys[i].contains(Point(point[0], point[1])):
-            return label_map[region_labels[i]]
+    for i in range(len(region_labels)):
+        try: 
+            if polys[i].contains(Point(point[0], point[1])):
+                return label_map[region_labels[i]]
+        except:
+            pass
     else:
         return -1 # not in any of the regions - unknown label
 
@@ -182,7 +185,14 @@ for case in cases:
         l_patches, l_coords, l_labels = [], [], []
 
         regions, region_labels = fetch_regions(image_id)
-        polys = [Polygon(r) for r in regions]
+        polys = []
+        for r in regions:
+            try:
+                polys.append(Polygon(r))
+            except:
+                pass
+
+	
 
         while y < y_tiles:
             while x < x_tiles:
