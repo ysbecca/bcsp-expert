@@ -94,10 +94,18 @@ def generate_label(polys, region_labels, point):
     # regions = array of vertices (all_coords)
     # point [x, y]
     
+    half_patch = int(new_patch_dim / 2.0)
+
+    corners = [Point(point[0] - half_patch, point[1] + half_patch),
+            Point(point[0] + half_patch, point[1] - half_patch),
+            Point(point[0] - half_patch, point[1] - half_patch),
+            Point(point[0] + half_patch, point[1] + half_patch)]
+
+
     # see if point is in any of regions provided
     for i in range(len(region_labels)):
         try: 
-            if polys[i].contains(Point(point[0], point[1])):
+            if polys[i].contains(corners[0]) and polys[i].contains(corners[1]) and polys[i].contains(corners[2]) and polys[i].contains(corners[3]):
                 return label_map[region_labels[i]]
         except:
             pass
