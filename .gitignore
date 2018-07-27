@@ -6,9 +6,11 @@ __pycache__/
 # C extensions
 *.so
 
+scripts/myconfig.py
+
 saved_images/
 test_annotations_roi/
-
+annotated_test_images/
 .DS_Store
 data/temp_db/
 data/wsi_json/
