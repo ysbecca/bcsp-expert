@@ -17,6 +17,8 @@ from os import listdir
 from os.path import isfile, join
 import csv
 import h5py
+from skimage.color import rgb2hed
+from skimage.color import hed2rgb
 
 # My own helper scripts
 from scripts.myconfig import *
@@ -107,6 +109,35 @@ class DataSet(object):
 
     return self._images[start:end], self._labels[start:end]
 
+  def rotational_augment(self):
+    print("Rotational augment...", end="")
+
+    self._images = rotational_augment_patches(self._images)
+    self._labels = np.tile(self._labels, (9, 1))
+    self._coords = np.tile(self._coords, (9, 1))
+    self._image_ids = np.tile(self._image_ids, 9)
+
+    self._num_images = len(self._images)
+    print(self._num_images)
+
+
+  def colour_augment(self):
+    print("H&E stain augment...", end="")
+    hed_patches = [rgb2hed(patch) for patch in self._images]
+    self._images, repeats = stain_augment(hed_patches)
+    del hed_patches
+
+    # Get coords, labels, ids to match new duplicates.
+    repeats = np.array(repeats).astype(np.int8)
+
+    self._coords = np.repeat(self._coords, repeats, axis=0)
+    self._labels = np.repeat(self._labels, repeats, axis=0)
+    self._image_ids = np.repeat(self._image_ids, repeats, axis=0)
+
+    self._num_images = len(self._images)
+
+    print(self._num_images)
+
 # Helper function which shuffles the object.
 def shuffle_multiple(list_of_lists):
   new_list = []
@@ -121,7 +152,7 @@ def shuffle_multiple(list_of_lists):
   return new_list
 
 
-def read_datasets(valid_id, train_id, k, shuffle_all=False, new_valid=True):
+def read_datasets(valid_id, train_id, k, shuffle_all=False, do_augments=False, new_valid=True):
   class DataSets(object):
       pass
   dataset = DataSets()
@@ -133,6 +164,10 @@ def read_datasets(valid_id, train_id, k, shuffle_all=False, new_valid=True):
   dataset.valid = fetch_seg_dataset(valid_id, k, cases)
   dataset.train = fetch_seg_dataset(train_id, k, cases)
 
+  if do_augments and dataset.train.num_images > 0:
+    dataset.train.colour_augment()
+    dataset.train.rotational_augment()
+
   if shuffle_all:
       dataset.train.shuffle_all()
       dataset.valid.shuffle_all()
@@ -140,7 +175,7 @@ def read_datasets(valid_id, train_id, k, shuffle_all=False, new_valid=True):
   return dataset
 
 
-def fetch_seg_dataset(k_set_id, k, cases, do_augments=False):
+def fetch_seg_dataset(k_set_id, k, cases):
 
   selected = np.zeros((len(cases)))
   selected[k_set_id::k] = 1
@@ -162,11 +197,11 @@ def fetch_seg_dataset(k_set_id, k, cases, do_augments=False):
   labels = np.array(labels)
   image_ids = np.array(image_ids)
 
-  print("Finished loading k-set:", k_set_id)
-  print(np.shape(patches))
-  print(np.shape(coords))
-  print(np.shape(labels))
-  print(np.shape(image_ids))
+  print("LOADED k-set:", k_set_id)
+  # print(np.shape(patches))
+  # print(np.shape(coords))
+  # print(np.shape(labels))
+  # print(np.shape(image_ids))
 
   return DataSet(patches, coords, labels, image_ids)
 
@@ -200,28 +235,33 @@ def read_patches_and_meta_L(image_id, patches, coords, labels, image_ids):
       pass
     return patches, coords, labels, image_ids
 
-def stain_augment(patches):
+def stain_augment(hed_patches):
 
   # Calculate max H, E, D range in dataset - with no colour normalisation.
   max_hed = [-2.0]*3
   min_hed = [1.0]*3
+  # Keep track of how many augments are added for each index.
+  # Integer at i corresponds to how many repeats for that image.
+  repeats = np.ones((len(hed_patches)))
 
   for p in hed_patches:
     hed = np.dsplit(p, 3)
     for channel in range(3):
-        max_hed[channel] = max(np.max(hed[channel]), max_hed[channel])
-        min_hed[channel] = min(np.min(hed[channel]), min_hed[channel])
+        # A little buffer to avoid getting unusual combinations at ends of range
+        max_hed[channel] = max(np.max(hed[channel]), max_hed[channel])# - 0.0001
+        min_hed[channel] = min(np.min(hed[channel]), min_hed[channel])# + 0.0001
 
-  print("Calculated max HED range:", max_hed)
-  print("Calculated min HED range:", min_hed)
+  # print("Calculated max HED range:", max_hed)
+  # print("Calculated min HED range:", min_hed)
 
   # Tweak the H, E, and DAB channels within the range of the dataset (one channel at a time).
   tweaked_patches = []
 
-  for p in hed_patches:
+  for i, p in enumerate(hed_patches):
+      tweaked_patches.append(p) # Always include the original
       channels = np.dsplit(p, 3)
       # Subtract and add by interval until hit min and max in any one pixel value
-      interval = 0.03
+      interval = 0.05
       current = interval
       not_reached_max, not_reached_min = [True]*3, [True]*3
       while(True in (not_reached_max + not_reached_min)):
@@ -232,6 +272,7 @@ def stain_augment(patches):
                   if np.count_nonzero(np.where(new_channel > max_hed[ch], 1, 0)) == 0:
                       ch_copy[ch] = new_channel
                       tweaked_patches.append(np.dstack(ch_copy))
+                      repeats[i] += 1
                   else:
                       not_reached_max[ch] = False
               if not_reached_min[ch]:
@@ -240,13 +281,19 @@ def stain_augment(patches):
                   if np.count_nonzero(np.where(new_channel < min_hed[ch], 1, 0)) == 0:
                       ch_copy[ch] = new_channel
                       tweaked_patches.append(np.dstack(ch_copy))
+                      repeats[i] += 1
                   else:
                       not_reached_min[ch] = False
           current += interval
 
-  print("Augmented patches via colour deconvolution:", len(tweaked_patches), "patches...")
+  del hed_patches
+  new_patches = []
+  for p in tweaked_patches:
+    new_patches.append(hed2rgb(p))
 
-  # return np.array()
+  del tweaked_patches
+
+  return np.array(new_patches), repeats
 
 
 
