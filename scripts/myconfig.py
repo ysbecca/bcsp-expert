@@ -27,10 +27,10 @@ json_dir = "/home/ufaserv1_k/sc16rsmy/bcsp-expert/annotations/training_set/"
 folder_prefix = "Case_"
 patch_size = 128
 level = 14
-pixel_overlap = 0
+pixel_overlap = 40 
 
 # For image quality downsampling.
-downsample_factor = 8
+downsample_factor = 4
 
 new_patch_dim = int(patch_size / downsample_factor)
 

@@ -103,10 +103,12 @@ def generate_label(polys, region_labels, point):
 
 
     # see if point is in any of regions provided
-    for i in range(len(region_labels)): 
-        # Check every corner; all four corners must be within region to count.
-        if polys[i].contains(corners[0]) and polys[i].contains(corners[1]) and polys[i].contains(corners[2]) and polys[i].contains(corners[3]):
-            return label_map[region_labels[i]]
+    for i in range(len(region_labels)):
+        try: 
+            if polys[i].contains(corners[0]) and polys[i].contains(corners[1]) and polys[i].contains(corners[2]) and polys[i].contains(corners[3]):
+                return label_map[region_labels[i]]
+        except:
+            pass
     else:
         return -1 # not in any of the regions - unknown label
 
@@ -191,7 +193,14 @@ for case in cases:
         l_patches, l_coords, l_labels = [], [], []
 
         regions, region_labels = fetch_regions(image_id)
-        polys = [Polygon(r) for r in regions]
+        polys = []
+        for r in regions:
+            try:
+                polys.append(Polygon(r))
+            except:
+                pass
+
+	
 
         while y < y_tiles:
             while x < x_tiles:
