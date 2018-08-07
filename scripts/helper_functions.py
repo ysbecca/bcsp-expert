@@ -7,13 +7,15 @@ import csv
 
 
 # Loads csv cases from file
-def load_cases(csv_name):
-    cases = []
+def load_cases(csv_name, is_test=False):
+    cases, gtruth = [], []
     with open(csv_name, 'r') as csvfile:
         r = csv.reader(csvfile, delimiter=',', quotechar='|')
         for row in r:
             cases.append(row[0])
-    return cases
+            if is_test:
+                gtruth.append(row[1])
+    return cases, gtruth
 
 # Helper timing functions.
 def start_timer():
