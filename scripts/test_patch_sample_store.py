@@ -120,10 +120,7 @@ def image_is_background(image):
     else:
         return False
 
-
-def store_hdf5(patches, dir_path, coords, labels, rois, csv_name):
-    ''' Saves patches into hdf5 files, and meta into csv files '''
-
+def store_csv_meta(dir_path, coords, labels, rois, csv_name):
     print("Writing csv to:", csv_name + '.csv')
 
     # First write meta.
@@ -135,18 +132,19 @@ def store_hdf5(patches, dir_path, coords, labels, rois, csv_name):
             writer.writerow(row)
 
     print("Wrote csv.")
-    file = h5py.File(dir_path + csv_name + '.h5','w')
-    print("Created file", file)
-    dataset = file.create_dataset('t', np.shape(patches), h5py.h5t.STD_I32BE, data=patches, compression="gzip", compression_opts=9)
 
-    print("===================")
-    print("Meta data saved in", csv_name + ".csv")
-    print("Dataset dataspace is " + str(dataset.shape))
-    print("Dataset numpy datatype is " + str(dataset.dtype))
-    print("Dataset name is " + str(dataset.name))
-    print("Dataset was created in the file " + str(dataset.file))
-    print("===================")
-    file.close()
+def store_hdf5(datasets, patches, written_count):
+    ''' Saves sub-set of patches into hdf5 file. '''
+    p_count = len(patches[0])
+    if p_count > 0:
+        # Resize dataset, then write to new expanded shape.
+        for i in range(samples_per_patch):
+            datasets[i].resize((written_count + p_count), axis=0)
+            datasets[i][written_count:(written_count + p_count)] = np.array(patches[i], dtype=np.int32)
+        
+            print("Dataset", i, "dataspace is " + str(datasets[i].shape))
+
+    return datasets, written_count + p_count
 
 # END helper functions ************************************************
 
@@ -162,6 +160,26 @@ for c, case in enumerate(cases):
     image_ids = [f[:-4] for f in case_files]
 
     for image_id in image_ids:
+        csv_name = str(image_id) + "_T"
+
+        # H5 file storage preparation.
+        h5_files = []
+        for j in range(samples_per_patch):
+            h5_files.append(h5py.File(test_db_dir + csv_name + '_' + str(j) + '.h5','w'))
+
+        print("Created files:", h5_files)
+        datasets = []
+        chunk_size = 1000
+        for j in range(samples_per_patch):
+            datasets.append(h5_files[j].create_dataset(
+                'dataset',
+                (0, patch_sizes[0], patch_sizes[0], 3), # shape
+                h5py.h5t.STD_I32BE,
+                maxshape=(None, patch_sizes[0], patch_sizes[0], 3),
+                chunks=(chunk_size, patch_sizes[0], patch_sizes[0], 3),
+                compression="gzip", 
+                compression_opts=9))
+
 
         start_time = start_timer()
 
@@ -172,10 +190,12 @@ for c, case in enumerate(cases):
         initial_offset = int(patch_sizes[len(patch_sizes) - 1] / 2.0)
 
         x, y = initial_offset, initial_offset
-        count = 0
+        written_count, total_count = 0, 0
         patches, coords, labels, rois = [], [], [], []
         for i in range(samples_per_patch):
             patches.append([]) # samples_per_patch patches for each x, y sampling position
+
+        base_patches = patches
 
         regions = load_xml_regions(image_id)[0]
         print("Found", len(regions), "region(s).")
@@ -196,11 +216,13 @@ for c, case in enumerate(cases):
         else:
             label = [0, 1]
 
+        patches_per_batch = chunk_size * samples_per_patch
+
         # For test only -- end_stop
-        # end_stop, stop = 4*samples_per_patch, False
+        # end_stop, stop = 10*samples_per_patch, False
         while y < slide_dims[1] + initial_offset:
             while x < slide_dims[0] + initial_offset:
-                # print("x, y:", x, y)
+                print("x, y:", x, y)
                 is_roi = 0
                 for i in range(samples_per_patch):
                     x_ = x - int(0.5*patch_sizes[i])
@@ -228,12 +250,14 @@ for c, case in enumerate(cases):
                         # print("--------------------------Done imresize")
 
                     patches[i].append(new_tile)
-                    count += 1
-                    print(".", end="")
-                    # print("Count = ", count)
-                    # if count == end_stop:
-                        # stop = True
-
+                    total_count += 1
+                    print("................")
+                
+                if total_count >= patches_per_batch:
+                    # Write entire batch to h5 file and clear memory.
+                    print("total_count >= patches_per_batch at", total_count)
+                    datasets, written_count = store_hdf5(datasets, patches, written_count)
+                    patches = base_patches # Reset.
 
                 x += patch_sizes[0] # Full patch stride.
                 # if stop:
@@ -243,25 +267,34 @@ for c, case in enumerate(cases):
             # if stop:
                 # break # For local testing purposes only!
 
+        # Last batch (may be incomplete).
+        if total_count > written_count:
+            datasets, written_count = store_hdf5(datasets, patches, written_count)
+            del patches
+
+        print("Total count:    ", total_count)
+        print("Written count:  ", written_count)
 
         print("Patch sampling for image " + str(image_id) + " done: ", end="")
         end_timer(start_time)
 
         # In[17]:
-        print("Patches and meta: =====")
-        print(np.shape(patches))
-        print(np.shape(patches[i]))
+        print("Patch meta: =========")
         print(np.shape(rois))
         print(np.shape(coords))
         print(np.shape(labels))
 
-        # Save patches and meta in hdf5/csv files.
-        # In[24]:
-        # In[25]:
+        # Store images by image_id + _T for test set meta.
+        store_csv_meta(test_db_dir, coords, labels, rois, csv_name)
 
-        # Store images by image_id + _T for test set.
-        csv_name = str(image_id) + "_T"
-        store_hdf5(patches, test_db_dir, coords, labels, rois, csv_name)
+        print("===================")
+        print("Meta data saved in", csv_name + ".csv")
+        print("Dataset dataspace is " + str(datasets.shape))
+        print("Dataset numpy datatype is " + str(datasets.dtype))
+        print("Dataset name is " + str(datasets.name))
+        print("Dataset was created in the file " + str(datasets.file))
+        print("===================")
+        h5_file.close()
         
 # In[26]:
 
