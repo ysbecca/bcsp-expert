@@ -85,19 +85,29 @@ def load_xml_regions(image_id):
 
     return regions
 
-def check_is_roi(polys, point):
+def calculate_bounding_points(regions):
+    max_points = []
+    min_points = []
+    for r in regions:
+        max_x, max_y = np.amax(r, axis=0)
+        min_x, min_y = np.amin(r, axis=0)
+        max_points.append([max_x, max_y])
+        min_points.append([min_x, min_y])
+
+    return max_points, min_points
+
+def check_is_roi(polys, regions, max_pts, min_pts, point):
     # regions = array of vertices (all_coords)
     # point [x, y]
-    
-    # see if point is in any of regions provided
-    for i in range(len(polys)):
-        # try: 
-        if polys[i].contains(Point(point)):
-            return 1
-        # except:
-            # pass
-    else:
-        return 0 # Not in ROI.
+
+    # Optimisation of checking -- first check coordinates are in any bounding box of the polys.
+    # If not then don't bother checking polygon.
+    within_boundaries = False
+    for i in range(len(regions)):
+        if point[0] >= min_pts[i][0] and point[0] <= max_pts[i][0] and point[1] >= min_pts[i][1] and point[1] <= max_pts[i][1]:
+            if polys[i].contains(Point(point)):
+                return 1
+    return 0 # Not in any ROI
 
 def image_is_background(image):
     '''
@@ -170,6 +180,8 @@ for c, case in enumerate(cases):
         regions = load_xml_regions(image_id)[0]
         print("Found", len(regions), "region(s).")
 
+        max_pts, min_pts = calculate_bounding_points(regions)
+
         polys = []
         for r in regions:
             try:
@@ -200,7 +212,8 @@ for c, case in enumerate(cases):
                         if not image_is_background(new_tile):
                             # Get roi label.
                             point_ = (x/annotation_downsample, y/annotation_downsample)
-                            is_roi = check_is_roi(polys, point_)
+                            is_roi = check_is_roi(polys, regions, max_pts, min_pts, point_)
+                            # print("------------------------ROI?")
                             # Add label, coordinate, coords values only once.
                             labels.append(label)
                             rois.append(is_roi)
@@ -210,13 +223,16 @@ for c, case in enumerate(cases):
                     
                     if downsamples[i] > 0:
                         # All patches downsampled to the first patch size.
-                        new_tile = imresize(new_tile, (patch_sizes[0], patch_sizes[0]))
+                        # print("--------------------------imresize")
+                        new_tile = np.array(Image.fromarray(new_tile).resize((patch_sizes[0], patch_sizes[0])))
+                        # print("--------------------------Done imresize")
 
                     patches[i].append(new_tile)
                     count += 1
+                    print(".", end="")
                     # print("Count = ", count)
-                    if count == end_stop:
-                        stop = True
+                    # if count == end_stop:
+                        # stop = True
 
 
                 x += patch_sizes[0] # Full patch stride.
