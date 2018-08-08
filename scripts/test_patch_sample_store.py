@@ -173,10 +173,10 @@ for c, case in enumerate(cases):
         for j in range(samples_per_patch):
             datasets.append(h5_files[j].create_dataset(
                 'dataset',
-                (0, patch_sizes[0], patch_sizes[0], 3), # shape
+                (0, base_patch_size, base_patch_size, 3), # shape
                 h5py.h5t.STD_I32BE,
-                maxshape=(None, patch_sizes[0], patch_sizes[0], 3),
-                chunks=(chunk_size, patch_sizes[0], patch_sizes[0], 3)))
+                maxshape=(None, base_patch_size, base_patch_size, 3),
+                chunks=(chunk_size, base_patch_size, base_patch_size, 3)))
                 # compression="gzip", 
                 # compression_opts=9))
 
@@ -215,58 +215,58 @@ for c, case in enumerate(cases):
             label = [0, 1]
 
         patches_per_batch = chunk_size * samples_per_patch
-
+        batch_count = 0
         # For test only -- end_stop
         # end_stop, stop = 10*samples_per_patch, False
         while y < slide_dims[1] + initial_offset:
             while x < slide_dims[0] + initial_offset:
                 print("x, y:", x, "/", slide_dims[0], ",", y, "/", slide_dims[1])
                 is_roi = 0
+                break_out = False
                 for i in range(samples_per_patch):
-                    x_ = x - int(0.5*patch_sizes[i])
-                    y_ = y - int(0.5*patch_sizes[i])
-                    # new_tile = np.array(slide.read_region((x_, y_), level, (patch_sizes[i], patch_sizes[i])))[:,:,:3]
+                    if not break_out:
 
-                    # The background test and label is always based on the first patch size.
-                    # if i == 0: 
-                        # if not image_is_background(new_tile):
-                            # Get roi label.
-                            # point_ = (x/annotation_downsample, y/annotation_downsample)
-                            # is_roi = check_is_roi(polys, regions, max_pts, min_pts, point_)
-                            # print("------------------------ROI?")
-                            # Add label, coordinate, coords values only once.
-                            # labels.append(label)
-                            # rois.append(is_roi)
-                            # coords.append(np.array([x, y]))
-                        # else:
-                            # break # Out of the for loop; no saving.
-                    
-                    # if downsamples[i] > 0:
-                        # All patches downsampled to the first patch size.
-                        # print("--------------------------imresize")
-                        # new_tile = np.array(Image.fromarray(new_tile).resize((patch_sizes[0], patch_sizes[0])))
-                        # print("--------------------------Done imresize")
-                    # patches[i].append(new_tile)
-                    total_count += 1
-                    # print("................")
+                        x_ = x - int(0.5*patch_sizes[i])
+                        y_ = y - int(0.5*patch_sizes[i])
+                        new_tile = np.array(slide.read_region((x_, y_), level, (patch_sizes[i], patch_sizes[i])))[:,:,:3]
+
+                        # The background test and label is always based on the first patch size.
+                        if i == 0: 
+                            if not image_is_background(new_tile):
+                                # Get roi label.
+                                point_ = (x/annotation_downsample, y/annotation_downsample)
+                                is_roi = check_is_roi(polys, regions, max_pts, min_pts, point_)
+
+                                # Add label, coordinate, coords values only once.
+                                labels.append(label)
+                                rois.append(is_roi)
+                                coords.append(np.array([x, y]))
+                            else:
+                                break_out = True # Out of the for loop; no saving.
+                        
+                        if not break_out:
+                            if downsamples[i] > 0:
+                                # All patches downsampled to the base patch size.
+                                new_tile = np.array(Image.fromarray(new_tile).resize((base_patch_size, base_patch_size)))                        
+                                patches[i].append(new_tile)
+                                total_count += 1
+                                batch_count += 1
                 
-                if total_count >= patches_per_batch:
+                if batch_count >= patches_per_batch:
                     # Write entire batch to h5 file and clear memory.
-                    print("total_count >= patches_per_batch at", total_count)
-                    # datasets, written_count = store_hdf5(datasets, patches, written_count)
+                    print("batch_count >= patches_per_batch at", batch_count, ", total_count", total_count)
+                    datasets, written_count = store_hdf5(datasets, patches, written_count)
                     patches = base_patches # Reset.
+                    batch_count = 0
 
                 x += patch_sizes[0] # Full patch stride.
-                # if stop:
-                    # break # For local testing purposes only!
+ 
             y += patch_sizes[0]
             x = initial_offset
-            # if stop:
-                # break # For local testing purposes only!
-
+ 
         # Last batch (may be incomplete).
         if total_count > written_count:
-            # datasets, written_count = store_hdf5(datasets, patches, written_count)
+            datasets, written_count = store_hdf5(datasets, patches, written_count)
             del patches
 
         print("Total count:    ", total_count)
@@ -282,15 +282,9 @@ for c, case in enumerate(cases):
         print(np.shape(labels))
 
         # Store images by image_id + _T for test set meta.
-        # store_csv_meta(test_db_dir, coords, labels, rois, csv_name)
+        store_csv_meta(test_db_dir, coords, labels, rois, csv_name)
+        print("Meta data saved in", csv_name + ".csv")
 
-        # print("===================")
-        # print("Meta data saved in", csv_name + ".csv")
-        # print("Dataset dataspace is " + str(datasets.shape))
-        # print("Dataset numpy datatype is " + str(datasets.dtype))
-        # print("Dataset name is " + str(datasets.name))
-        # print("Dataset was created in the file " + str(datasets.file))
-        # print("===================")
         for k in range(samples_per_patch):
             h5_files[k].close()
         
