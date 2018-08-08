@@ -22,19 +22,22 @@ test_db_dir = "/nobackup/sc16rsmy/bcsp-expert-h5/"
 
 # Where to find the JSON or XML annotation files
 # json_dir = "/home/ufaserv1_k/sc16rsmy/bcsp-expert/annotations/training_set/"
-json_dir = "/home/ufaserv1_k/sc16rsmy/bcsp-expert/annotations/test_set/"
+xml_dir = "/home/ufaserv1_k/sc16rsmy/bcsp-expert/annotations/test_set/"
 # json_dir = "/Users/ysbecca/ysbecca-projects/bcsp-expert/data/wsi_json/"
 # xml_dir = "/Users/ysbecca/ysbecca-projects/bcsp-expert/annotations/test_set/"
 
 folder_prefix = "Case_"
-patch_sizes = [512, 1024, 2048, 4096]
+base_patch_size = 256
+patch_sizes = [512, 1024, 2048]
 level = 0
 pixel_overlap = 0
 samples_per_patch = len(patch_sizes)
 
 
+chunk_size = 2000
+
 # For image quality downsampling.
-downsamples = [0, 2, 4, 8]
+downsamples = [2, 4, 8]
 
 # new_patch_dim = int(patch_size / downsample_factor)
 
