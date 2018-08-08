@@ -176,10 +176,9 @@ for c, case in enumerate(cases):
                 (0, patch_sizes[0], patch_sizes[0], 3), # shape
                 h5py.h5t.STD_I32BE,
                 maxshape=(None, patch_sizes[0], patch_sizes[0], 3),
-                chunks=(chunk_size, patch_sizes[0], patch_sizes[0], 3),
-                compression="gzip", 
-                compression_opts=9))
-
+                chunks=(chunk_size, patch_sizes[0], patch_sizes[0], 3)))
+                # compression="gzip", 
+                # compression_opts=9))
 
         start_time = start_timer()
 
@@ -205,7 +204,6 @@ for c, case in enumerate(cases):
         polys = []
         for r in regions:
             try:
-            # print(np.shape(r))
                 polys.append(Polygon(r))
             except:
                 pass
@@ -222,7 +220,7 @@ for c, case in enumerate(cases):
         # end_stop, stop = 10*samples_per_patch, False
         while y < slide_dims[1] + initial_offset:
             while x < slide_dims[0] + initial_offset:
-                print("x, y:", x, y)
+                print("x, y:", x, "/", slide_dims[0], ",", y, "/", slide_dims[1])
                 is_roi = 0
                 for i in range(samples_per_patch):
                     x_ = x - int(0.5*patch_sizes[i])
@@ -248,7 +246,6 @@ for c, case in enumerate(cases):
                         # print("--------------------------imresize")
                         new_tile = np.array(Image.fromarray(new_tile).resize((patch_sizes[0], patch_sizes[0])))
                         # print("--------------------------Done imresize")
-
                     patches[i].append(new_tile)
                     total_count += 1
                     print("................")
@@ -287,14 +284,15 @@ for c, case in enumerate(cases):
         # Store images by image_id + _T for test set meta.
         store_csv_meta(test_db_dir, coords, labels, rois, csv_name)
 
-        print("===================")
-        print("Meta data saved in", csv_name + ".csv")
-        print("Dataset dataspace is " + str(datasets.shape))
-        print("Dataset numpy datatype is " + str(datasets.dtype))
-        print("Dataset name is " + str(datasets.name))
-        print("Dataset was created in the file " + str(datasets.file))
-        print("===================")
-        h5_file.close()
+        # print("===================")
+        # print("Meta data saved in", csv_name + ".csv")
+        # print("Dataset dataspace is " + str(datasets.shape))
+        # print("Dataset numpy datatype is " + str(datasets.dtype))
+        # print("Dataset name is " + str(datasets.name))
+        # print("Dataset was created in the file " + str(datasets.file))
+        # print("===================")
+        for k in range(samples_per_patch):
+            h5_files[k].close()
         
 # In[26]:
 
