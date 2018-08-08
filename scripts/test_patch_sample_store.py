@@ -225,35 +225,35 @@ for c, case in enumerate(cases):
                 for i in range(samples_per_patch):
                     x_ = x - int(0.5*patch_sizes[i])
                     y_ = y - int(0.5*patch_sizes[i])
-                    new_tile = np.array(slide.read_region((x_, y_), level, (patch_sizes[i], patch_sizes[i])))[:,:,:3]
+                    # new_tile = np.array(slide.read_region((x_, y_), level, (patch_sizes[i], patch_sizes[i])))[:,:,:3]
 
                     # The background test and label is always based on the first patch size.
-                    if i == 0: 
-                        if not image_is_background(new_tile):
+                    # if i == 0: 
+                        # if not image_is_background(new_tile):
                             # Get roi label.
-                            point_ = (x/annotation_downsample, y/annotation_downsample)
-                            is_roi = check_is_roi(polys, regions, max_pts, min_pts, point_)
+                            # point_ = (x/annotation_downsample, y/annotation_downsample)
+                            # is_roi = check_is_roi(polys, regions, max_pts, min_pts, point_)
                             # print("------------------------ROI?")
                             # Add label, coordinate, coords values only once.
-                            labels.append(label)
-                            rois.append(is_roi)
-                            coords.append(np.array([x, y]))
-                        else:
-                            break # Out of the for loop; no saving.
+                            # labels.append(label)
+                            # rois.append(is_roi)
+                            # coords.append(np.array([x, y]))
+                        # else:
+                            # break # Out of the for loop; no saving.
                     
-                    if downsamples[i] > 0:
+                    # if downsamples[i] > 0:
                         # All patches downsampled to the first patch size.
                         # print("--------------------------imresize")
-                        new_tile = np.array(Image.fromarray(new_tile).resize((patch_sizes[0], patch_sizes[0])))
+                        # new_tile = np.array(Image.fromarray(new_tile).resize((patch_sizes[0], patch_sizes[0])))
                         # print("--------------------------Done imresize")
-                    patches[i].append(new_tile)
+                    # patches[i].append(new_tile)
                     total_count += 1
-                    print("................")
+                    # print("................")
                 
                 if total_count >= patches_per_batch:
                     # Write entire batch to h5 file and clear memory.
                     print("total_count >= patches_per_batch at", total_count)
-                    datasets, written_count = store_hdf5(datasets, patches, written_count)
+                    # datasets, written_count = store_hdf5(datasets, patches, written_count)
                     patches = base_patches # Reset.
 
                 x += patch_sizes[0] # Full patch stride.
@@ -266,7 +266,7 @@ for c, case in enumerate(cases):
 
         # Last batch (may be incomplete).
         if total_count > written_count:
-            datasets, written_count = store_hdf5(datasets, patches, written_count)
+            # datasets, written_count = store_hdf5(datasets, patches, written_count)
             del patches
 
         print("Total count:    ", total_count)
@@ -276,13 +276,13 @@ for c, case in enumerate(cases):
         end_timer(start_time)
 
         # In[17]:
-        print("Patch meta: =========")
+        print("Patch meta: ================================================= **")
         print(np.shape(rois))
         print(np.shape(coords))
         print(np.shape(labels))
 
         # Store images by image_id + _T for test set meta.
-        store_csv_meta(test_db_dir, coords, labels, rois, csv_name)
+        # store_csv_meta(test_db_dir, coords, labels, rois, csv_name)
 
         # print("===================")
         # print("Meta data saved in", csv_name + ".csv")
