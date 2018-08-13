@@ -5,7 +5,7 @@ Save all the config for patch sampling and loading here.
 @ysbecca
 
 '''
-
+import sys
 
 # To read the case numbers selected
 # csv_name = "/home/ufaserv1_k/sc16rsmy/bcsp-expert/data/training_cases_only.csv"
@@ -25,6 +25,12 @@ test_db_dir = "/nobackup/sc16rsmy/bcsp-expert-h5/"
 xml_dir = "/home/ufaserv1_k/sc16rsmy/bcsp-expert/annotations/test_set/"
 # json_dir = "/Users/ysbecca/ysbecca-projects/bcsp-expert/data/wsi_json/"
 # xml_dir = "/Users/ysbecca/ysbecca-projects/bcsp-expert/annotations/test_set/"
+
+
+case_start = int(sys.argv[1])
+case_end = int(sys.argv[2])
+
+print("Case start, end: ", case_start, case_end)
 
 folder_prefix = "Case_"
 base_patch_size = 256
