@@ -27,7 +27,7 @@ from scripts.helper_functions import *
 
 class DataSet(object):
 
-  def __init__(self, images, coords, labels, image_ids):
+  def __init__(self, images, coords, labels, image_ids, rois=False):
 
     self._num_images = np.array(images).shape[0]
     self._images = images
@@ -42,6 +42,8 @@ class DataSet(object):
 
     self._epochs_completed = 0
     self._index_in_epoch = 0
+
+    self._rois = rois
 
   @property
   def images(self):
@@ -63,6 +65,9 @@ class DataSet(object):
   def num_images(self):
     return self._num_images
 
+  @property
+  def rois(self):
+    return self._rois
 
   @property
   def epochs_completed(self):
@@ -83,16 +88,28 @@ class DataSet(object):
         print("Cannot shuffle when", self.num_images, "images in set.")
         return
 
-    list_all = list(zip(self._images, self._labels, self._image_ids, self._coords))
-    random.shuffle(list_all)
-    self._images, self._labels, self._image_ids, self._coords = zip(*list_all)
-    self._images = np.array(self._images)
-    self._labels = np.array(self._labels)
-    self._image_ids = np.array(self._image_ids)
-    self._coords = np.array(self._coords)
+    if not self._rois:
+
+      list_all = list(zip(self._images, self._labels, self._image_ids, self._coords))
+      random.shuffle(list_all)
+      self._images, self._labels, self._image_ids, self._coords = zip(*list_all)
+      self._images = np.array(self._images)
+      self._labels = np.array(self._labels)
+      self._image_ids = np.array(self._image_ids)
+      self._coords = np.array(self._coords)
+    
+    else:
+      list_all = list(zip(self._images, self._labels, self._image_ids, self._coords, self._rois))
+      random.shuffle(list_all)
+      self._images, self._labels, self._image_ids, self._coords, self._rois = zip(*list_all)
+      self._images = np.array(self._images)
+      self._labels = np.array(self._labels)
+      self._image_ids = np.array(self._image_ids)
+      self._coords = np.array(self._coords)
+      self._rois = np.array(self._rois)
 
 
-  def next_batch(self, batch_size):
+  def next_batch(self, batch_size, get_roi=False):
     """Return the next `batch_size` examples from this data set."""
 
     start = self._index_in_epoch
@@ -106,8 +123,10 @@ class DataSet(object):
       self._index_in_epoch = batch_size
       assert batch_size <= self._num_images
     end = self._index_in_epoch
-
-    return self._images[start:end], self._labels[start:end]
+    if not get_roi:
+      return self._images[start:end], self._labels[start:end]
+    else:
+      return self._images[start:end], self._labels[start:end], self._rois[start:end]
 
   def rotational_augment(self):
     print("Rotational augment...", end="")
@@ -116,10 +135,11 @@ class DataSet(object):
     self._labels = np.tile(self._labels, (9, 1))
     self._coords = np.tile(self._coords, (9, 1))
     self._image_ids = np.tile(self._image_ids, 9)
+    if self._rois:
+      self._rois = np.tile(self._image_ids, 9)
 
     self._num_images = len(self._images)
     print(self._num_images)
-
 
   def colour_augment(self):
     print("H&E stain augment...", end="")
@@ -133,6 +153,8 @@ class DataSet(object):
     self._coords = np.repeat(self._coords, repeats, axis=0)
     self._labels = np.repeat(self._labels, repeats, axis=0)
     self._image_ids = np.repeat(self._image_ids, repeats, axis=0)
+    if self._rois:
+      self._rois = np.repeat(self._rois, repeats, axis=0)
 
     self._num_images = len(self._images)
 
@@ -152,36 +174,31 @@ def shuffle_multiple(list_of_lists):
   return new_list
 
 
-def read_datasets(valid_id, train_id, k, shuffle_all=False, do_augments=False, new_valid=True):
-  class DataSets(object):
-      pass
-  dataset = DataSets()
-
-  cases = load_cases(csv_name)
-  print("Cases:", cases)
+def read_k_dataset(k_id, total_k, shuffle_all=False, do_augments=False, is_test=False):
+  cases, gtruth = load_cases(csv_name, is_test)
+  print("Cases:           ", cases)
+  print("Ground truth:    ", gtruth)
 
   # Divided by CASE, so no patient's images will be in both valid and train sets.
-  dataset.valid = fetch_seg_dataset(valid_id, k, cases)
-  dataset.train = fetch_seg_dataset(train_id, k, cases)
+  dataset = fetch_seg_dataset(k_id, total_k, cases)
 
-  if do_augments and dataset.train.num_images > 0:
-    dataset.train.colour_augment()
-    dataset.train.rotational_augment()
+  if do_augments and dataset.num_images > 0:
+    dataset.colour_augment()
+    dataset.rotational_augment()
 
   if shuffle_all:
-      dataset.train.shuffle_all()
-      dataset.valid.shuffle_all()
+    dataset.shuffle_all()
+    dataset.shuffle_all()
 
   return dataset
-
 
 def fetch_seg_dataset(k_set_id, k, cases):
 
   selected = np.zeros((len(cases)))
   selected[k_set_id::k] = 1
-  print("Selected:", selected)
+  print("Selected:        ", selected)
 
-  patches, coords, labels, image_ids = [], [], [], []
+  patches, coords, labels, image_ids, rois = [], [], [], [], []
 
   for i, case in enumerate(cases):
     if selected[i]:
@@ -190,20 +207,68 @@ def fetch_seg_dataset(k_set_id, k, cases):
 
       # images[j][:-4] image ID
       for im in images:
-        patches, coords, labels, image_ids = read_patches_and_meta_L(im[:-4], patches, coords, labels, image_ids)
+        # patches, coords, labels, image_ids = read_patches_and_meta_L(im[:-4], patches, coords, labels, image_ids)
+        patches, coords, labels, image_ids, rois = read_patches_and_meta_test(im[:-4], patches, coords, labels, image_ids, rois)
 
   patches = np.array(patches)
   coords = np.array(coords)
   labels = np.array(labels)
   image_ids = np.array(image_ids)
+  rois = np.array(rois)
 
-  print("LOADED k-set:", k_set_id)
-  # print(np.shape(patches))
-  # print(np.shape(coords))
-  # print(np.shape(labels))
-  # print(np.shape(image_ids))
+  print("LOADED k-set:    ", k_set_id)
+  print(np.shape(patches))
+  print(np.shape(coords))
+  print(np.shape(labels))
+  print(np.shape(image_ids))
 
-  return DataSet(patches, coords, labels, image_ids)
+  return DataSet(patches, coords, labels, image_ids, rois)
+
+def read_patches_and_meta_test(image_id, patches, coords, labels, image_ids, rois):
+  ''' Reading the patches and meta for TEST patches into arrays. '''
+
+  patch_files = []
+  for i in range(samples_per_patch):
+      patch_files.append(str(image_id) + "_T_" + str(i) + ".h5")
+      
+  csv_file = str(image_id) + "_T.csv"
+
+  # First read patch meta data
+  with open(test_db_dir + csv_file, newline='') as metafile:
+      reader = csv.reader(metafile, delimiter=' ', quotechar='|')
+      for row in reader:
+          # Made a mistake saving the label as an array... so deconstruct now.
+          index_1 = int(row[0][4])
+          new_label = [1, 0]
+          if index_1:
+              new_label = [0, 1]
+          labels.append(np.array(new_label, dtype=np.int8))
+          coords.append(np.array([int(row[1]), int(row[2])]))
+          rois.append(int(row[3]))
+          image_ids.append(image_id)
+
+  flat_patches = [[], [], []]
+
+  # Now read patches
+  for i, p in enumerate(patch_files):
+      # Now load the images from H5 file
+      file = h5py.File(test_db_dir + p,'r+')
+      new_patches = np.array(file['dataset']).astype('uint8')
+      for patch in new_patches:
+          flat_patches[i].append(np.array(patch))
+
+      del new_patches
+      file.close()
+      
+  print("Before stacking: ", np.shape(flat_patches))
+  # Stack patches into blocks
+
+  for i in range(np.shape(flat_patches)[1]):
+      patches.append(np.concatenate((flat_patches[0][i], flat_patches[1][i], flat_patches[2][i]), axis=2))
+
+  print("After stacking:  ", np.shape(patches))
+  return patches, coords, labels, image_ids, rois
+
 
 
 def read_patches_and_meta_L(image_id, patches, coords, labels, image_ids):
@@ -294,7 +359,6 @@ def stain_augment(hed_patches):
   del tweaked_patches
 
   return np.array(new_patches), repeats
-
 
 
 def rotational_augment_patches(patches):
