@@ -21,8 +21,8 @@ from skimage.color import rgb2hed
 from skimage.color import hed2rgb
 
 # My own helper scripts
-from scripts.myconfig import *
-from scripts.helper_functions import *
+from myconfig import *
+from helper_functions import *
 
 
 class DataSet(object):
@@ -253,7 +253,7 @@ def read_patches_and_meta_test(image_id, patches, coords, labels, image_ids, roi
   for i, p in enumerate(patch_files):
       # Now load the images from H5 file
       file = h5py.File(test_db_dir + p,'r+')
-      new_patches = np.array(file['dataset']).astype('uint8')
+      new_patches = np.array(file['dataset']).astype('float32')
       for patch in new_patches:
           flat_patches[i].append(np.array(patch))
 
@@ -290,7 +290,7 @@ def read_patches_and_meta_L(image_id, patches, coords, labels, image_ids):
       # Now load the images from H5 file
       file = h5py.File(test_db_dir + file_name + ".h5",'r+')
       dataset = file['/' + 't']
-      new_patches = np.array(dataset).astype('uint8')
+      new_patches = np.array(dataset).astype('float32')
       for i, patch in enumerate(new_patches):
           patches.append(patch)
 

@@ -12,6 +12,43 @@ from sklearn.utils import shuffle
 import random
 import csv
 
+
+# def inception_layer(inputs,
+#                     conv_11_size,
+#                     conv_33_reduce_size, conv_33_size,
+#                     conv_55_reduce_size, conv_55_size,
+#                     pool_size,
+#                     data_dict={},
+#                     trainable=False,
+#                     name='inception'):
+
+#     # new_conv_layer(input,              # The previous layer.
+#     #                    num_input_channels, # Num. channels in prev. layer.
+#     #                    filter_size,        # Width and height of each filter.
+#     #                    num_filters,        # Number of filters.
+#     #                    use_pooling=True,
+#     #                    max_pool_size=2,
+#     #                    use_relu=True):
+
+#     conv_11 = conv(inputs, 1, conv_11_size, '{}_1x1'.format(name))
+
+#     conv_33_reduce = conv(inputs, 1, conv_33_reduce_size,
+#                           '{}_3x3_reduce'.format(name))
+#     conv_33 = conv(conv_33_reduce, 3, conv_33_size, '{}_3x3'.format(name))
+
+#     conv_55_reduce = conv(inputs, 1, conv_55_reduce_size,
+#                           '{}_5x5_reduce'.format(name))
+#     conv_55 = conv(conv_55_reduce, 5, conv_55_size, '{}_5x5'.format(name))
+
+#     pool = max_pool(inputs, '{}_pool'.format(name), stride=1,
+#                     padding='SAME', filter_size=3)
+#     convpool = conv(pool, 1, pool_size, '{}_pool_proj'.format(name))
+
+#     return tf.concat([conv_11, conv_33, conv_55, convpool],
+#                      3, name='{}_concat'.format(name))
+
+
+
 def write_test_predictions(dataset, fname):
     ''' Pass data.test object. fname does not include .csv extension. '''
     prediction_root = "./test_predictions/"
@@ -104,7 +141,7 @@ def new_conv_layer(input,              # The previous layer.
                                strides=[1, max_pool_size, max_pool_size, 1],
                                padding='SAME')
         print(layer)
-    return layer, weights
+    return layer
 
 def flatten_layer(layer):
     layer_shape = layer.get_shape()
@@ -132,7 +169,7 @@ def new_fc_layer(input,          # The previous layer.
     if use_relu:
         layer = tf.nn.relu(layer)
 
-    return layer, weights
+    return layer
 
 def plot_conv_weights(weights, sess, input_channel=0):
     # Assume weights are TensorFlow ops for 4-dim variables

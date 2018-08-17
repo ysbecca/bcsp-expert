@@ -220,7 +220,7 @@ for c, case in enumerate(cases):
         patches_per_batch = chunk_size * samples_per_patch
         batch_count = 0
         # For test only -- end_stop
-        # end_stop, stop = 10*samples_per_patch, False
+        end_stop, stop = 10*samples_per_patch, False
         while y < slide_dims[1] + initial_offset:
             while x < slide_dims[0] + initial_offset:
                 #print("x, y:", x, "/", slide_dims[0], ",", y, "/", slide_dims[1])
@@ -253,6 +253,8 @@ for c, case in enumerate(cases):
                             patches[i].append(new_tile)
                             total_count += 1
                             batch_count += 1
+                            if batch_count >= end_stop:
+                                stop = True
                 
                 if batch_count >= patches_per_batch:
                     # Write entire batch to h5 file and clear memory.
@@ -260,9 +262,12 @@ for c, case in enumerate(cases):
                     datasets, written_count = store_hdf5(datasets, patches, written_count)
                     patches = base_patches # Reset.
                     batch_count = 0
+                    if stop:
+                        break
 
                 x += patch_sizes[0] # Full patch stride.
- 
+                if stop:
+                    break
             y += patch_sizes[0]
             x = initial_offset
  
