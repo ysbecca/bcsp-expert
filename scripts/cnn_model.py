@@ -289,10 +289,10 @@ class CNN_Model():
         ''' Splits the model across available GPUs. '''
         in_splits = {}
         for k, v in kwargs.items():
-            in_splits[k] = tf.split(v, num_gpus)
+            in_splits[k] = tf.split(v, len(self.gpus))
 
         y_pred_split, y_pred_cls_split, cost_split = [], [], []
-        for i in range(num_gpus):
+        for i in range(len(self.gpus)):
             with tf.device(tf.DeviceSpec(device_type="GPU", device_index=i)):
                 with tf.variable_scope(tf.get_variable_scope(), reuse=i > 0):
                     y_pred_, y_pred_cls_, cost_ = fn(**{k : v[i] for k, v in in_splits.items()})
