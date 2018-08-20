@@ -27,23 +27,16 @@ from helper_functions import *
 
 class DataSet(object):
 
-  def __init__(self, images, coords, labels, image_ids, rois=False):
+  def __init__(self, wsi_ids, rois=False):
 
-    self._num_images = np.array(images).shape[0]
-    self._images = images
-
-    # Boolean array versions of ID
-    self._labels = labels 
-    # The source image labels
-    self._image_ids = image_ids
-    # Integer labels
-    # self._ids = ids 
-    self._coords = coords
-
+    # one k-set parameter
+    self.wsi_ids = wsi_ids
+    self.wsi_index = 0
     self._epochs_completed = 0
     self._index_in_epoch = 0
 
-    self._rois = rois
+    # Set all parameters by loading the first set.
+    self.read_next_patches_and_meta_test()
 
   @property
   def images(self):
@@ -109,7 +102,7 @@ class DataSet(object):
       self._rois = np.array(self._rois)
 
 
-  def next_batch(self, batch_size, get_roi=False):
+  def next_batch(self, batch_size, get_roi=False, augment=False):
     """Return the next `batch_size` examples from this data set."""
 
     start = self._index_in_epoch
@@ -119,10 +112,20 @@ class DataSet(object):
       # Finished epoch
       self._epochs_completed += 1
 
+      # Load next set here and then return batch!
+      # Always check if wrapping back around to first image.
+      # TODO add on-the-fly data augmentation right HERE.
+      if self.wsi_index >= len(self.wsi_ids):
+        self.wsi_index = 0
+
+      self.read_next_patches_and_meta_test()
+
       start = 0
       self._index_in_epoch = batch_size
       assert batch_size <= self._num_images
     end = self._index_in_epoch
+
+
     if not get_roi:
       return self._images[start:end], self._labels[start:end]
     else:
@@ -160,6 +163,68 @@ class DataSet(object):
 
     print(self._num_images)
 
+
+  def read_next_patches_and_meta_test(self):
+    ''' Reading the patches and meta for TEST patches into arrays. '''
+
+    image_id = self.wsi_ids[self.wsi_index]
+    print("Reading wsi_index:", self.wsi_index)
+
+    self._images = []
+    self._labels = []
+    self._image_ids = []
+    self._rois = []
+    self._coords = []
+
+    patch_files = []
+    for i in range(samples_per_patch):
+        patch_files.append(str(image_id) + "_T_" + str(i) + ".h5")
+        
+    csv_file = str(image_id) + "_T.csv"
+
+    # First read patch meta data
+    with open(test_db_dir + csv_file, newline='') as metafile:
+        reader = csv.reader(metafile, delimiter=' ', quotechar='|')
+        for row in reader:
+            # Made a mistake saving the label as an array... so deconstruct now.
+            index_1 = int(row[0][4])
+            new_label = [1, 0]
+            if index_1:
+                new_label = [0, 1]
+            self._labels.append(np.array(new_label, dtype=np.int8))
+            self._coords.append(np.array([int(row[1]), int(row[2])]))
+            self._rois.append(int(row[3]))
+            self._image_ids.append(image_id)
+
+    flat_patches = [[], [], []]
+
+    # Now read patches
+    for i, p in enumerate(patch_files):
+        # Now load the images from H5 file
+        file = h5py.File(test_db_dir + p,'r+')
+        new_patches = np.array(file['dataset']).astype('float32')
+        for patch in new_patches:
+            flat_patches[i].append(np.array(patch))
+
+        del new_patches
+        file.close()
+        
+    # print("Before stacking: ", np.shape(flat_patches))
+    # Stack patches into blocks
+
+    for i in range(np.shape(flat_patches)[1]):
+        self._images.append(np.concatenate((flat_patches[0][i], flat_patches[1][i], flat_patches[2][i]), axis=2))
+
+    flat_patches = None
+    print("After stacking:  ", np.shape(self._images))
+
+    self.wsi_index += 1
+    print("Current WSI index now:", self.wsi_index)
+
+    self._num_images = len(self._images)
+
+
+
 # Helper function which shuffles the object.
 def shuffle_multiple(list_of_lists):
   new_list = []
@@ -174,20 +239,29 @@ def shuffle_multiple(list_of_lists):
   return new_list
 
 
-def read_k_dataset(k_id, total_k, shuffle_all=False, do_augments=False, is_test=False):
-  cases, gtruth = load_cases(csv_name, is_test)
+def read_k_dataset(k_id, total_k, shuffle_all=False):
+  cases, gtruth = load_cases(csv_name)
   print("Cases:           ", cases)
   print("Ground truth:    ", gtruth)
 
   # Divided by CASE, so no patient's images will be in both valid and train sets.
-  dataset = fetch_seg_dataset(k_id, total_k, cases)
+  selected = np.zeros((len(cases)))
+  selected[k_id::total_k] = 1
+  print("Selected:        ", selected)
 
-  if do_augments and dataset.num_images > 0:
-    dataset.colour_augment()
-    dataset.rotational_augment()
+  wsi_ids = []
+  for i, case in enumerate(cases):
+    if selected[i]:
+      case_file_dir = img_dir + folder_prefix + str(case) + "/"
+      images = np.array([file for file in listdir(case_file_dir) if isfile(join(case_file_dir, file)) and '.svs' in file])
+      
+      for im in images:
+        wsi_ids.append(im[:-4])
+
+  print("WSI id's from k-set", k_id, ":", wsi_ids)
+  dataset = DataSet(wsi_ids, rois=True)
 
   if shuffle_all:
-    dataset.shuffle_all()
     dataset.shuffle_all()
 
   return dataset
@@ -224,50 +298,6 @@ def fetch_seg_dataset(k_set_id, k, cases):
 
   return DataSet(patches, coords, labels, image_ids, rois)
 
-def read_patches_and_meta_test(image_id, patches, coords, labels, image_ids, rois):
-  ''' Reading the patches and meta for TEST patches into arrays. '''
-
-  patch_files = []
-  for i in range(samples_per_patch):
-      patch_files.append(str(image_id) + "_T_" + str(i) + ".h5")
-      
-  csv_file = str(image_id) + "_T.csv"
-
-  # First read patch meta data
-  with open(test_db_dir + csv_file, newline='') as metafile:
-      reader = csv.reader(metafile, delimiter=' ', quotechar='|')
-      for row in reader:
-          # Made a mistake saving the label as an array... so deconstruct now.
-          index_1 = int(row[0][4])
-          new_label = [1, 0]
-          if index_1:
-              new_label = [0, 1]
-          labels.append(np.array(new_label, dtype=np.int8))
-          coords.append(np.array([int(row[1]), int(row[2])]))
-          rois.append(int(row[3]))
-          image_ids.append(image_id)
-
-  flat_patches = [[], [], []]
-
-  # Now read patches
-  for i, p in enumerate(patch_files):
-      # Now load the images from H5 file
-      file = h5py.File(test_db_dir + p,'r+')
-      new_patches = np.array(file['dataset']).astype('float32')
-      for patch in new_patches:
-          flat_patches[i].append(np.array(patch))
-
-      del new_patches
-      file.close()
-      
-  print("Before stacking: ", np.shape(flat_patches))
-  # Stack patches into blocks
-
-  for i in range(np.shape(flat_patches)[1]):
-      patches.append(np.concatenate((flat_patches[0][i], flat_patches[1][i], flat_patches[2][i]), axis=2))
-
-  print("After stacking:  ", np.shape(patches))
-  return patches, coords, labels, image_ids, rois
 
 
 

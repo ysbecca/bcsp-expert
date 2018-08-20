@@ -196,17 +196,57 @@ class CNN_Model():
         self.train = ds.read_k_dataset(train_k, self.total_k, shuffle_all=True, do_augments=True)
     
 
-    # def get_roi_accuracy(self, dataset, cls_pred, threshold=0.5, 
-                            # show_conf_matrix=True, verbose=True, get_outputs=False):
+    def get_roi_accuracy(self, dataset, cls_pred, threshold=0.5, 
+                            show_conf_matrix=True, verbose=True, get_outputs=False):
         ''' Computes the ROI accuracy given threshold and based on dataset.roi 
         '''
-        # if not dataset:
-            # print("OUPS! No dataset loaded.")
-            # return None, None, None
+        if not dataset:
+            print("OUPS! No dataset loaded.")
+            return None, None, None
 
         # Iterate through dataset and compare values above threshold for matching class
         # with whether it is within the ROI or not.
+        num_test = len(dataset.images)
+
+        i = 0
+
+        while i < num_test:
+            j = min(i + test_batch_size, num_test)
+            curr_batch_size = j - i
+
+            # Get the images and targets from the test-set between index i and j.
+            images = dataset.images[i:j, :].reshape(curr_batch_size, img_size_flat)
+            labels = dataset.labels[i:j, :]
+            
+            print(images.dtype)
+            print(np.shape(images))
+            print(np.shape(labels))
+            
+            #weights_ = np.ones((curr_batch_size))
+            feed_dict = {self.x: images, self.y_true: labels, self.keep_prob: 1.0}
+            
+            if get_outputs: # NON thresholded outputs
+                cls_pred[i:j] = self.session.run(self.y_true, feed_dict=feed_dict)
+            else:
+                cls_pred[i:j] = self.session.run(self.y_pred_cls, feed_dict=feed_dict)
+            i = j
+
+        # TODO Define differently depending on valid / test and problem...
+        cls_true = [np.argmax(label) for label in dataset.labels]
+
+        # Create a boolean array whether each image is correctly classified.
+        correct = (cls_true == cls_pred)
+
+        correct_sum = correct.sum() # sum(1 for a, b in zip(cls_true, cls_pred) if a and b)
+        acc = float(correct_sum) / num_test
+
+        if verbose:
+            msg = "ACCURACY: {0:.1%} ({1} / {2})"
+            print(msg.format(acc, correct_sum, num_test))
         
+        cm = cn.plot_confusion_matrix(cls_true, cls_pred=cls_pred, show_plt=show_conf_matrix)
+            
+        return acc, cm, cls_pred
 
 
 
@@ -278,9 +318,9 @@ class CNN_Model():
         print("Oups! Not implemented yet.")
         return -1
     
-    def load_k_set(self, k, shuffle, augment):
+    def load_k_set(self, k, shuffle):
         ''' Loads the kth set without setting the self.train or self.valid variables. '''
-        return ds.read_k_dataset(k, self.total_k, shuffle_all=shuffle, do_augments=augment)
+        return ds.read_k_dataset(k, self.total_k, shuffle_all=shuffle)
     
     def __get_gpus(self):
         return [x.name for x in device_lib.list_local_devices() if x.device_type == 'GPU']
@@ -289,10 +329,10 @@ class CNN_Model():
         ''' Splits the model across available GPUs. '''
         in_splits = {}
         for k, v in kwargs.items():
-            in_splits[k] = tf.split(v, num_gpus)
+            in_splits[k] = tf.split(v, len(self.gpus))
 
         y_pred_split, y_pred_cls_split, cost_split = [], [], []
-        for i in range(num_gpus):
+        for i in range(len(self.gpus)):
             with tf.device(tf.DeviceSpec(device_type="GPU", device_index=i)):
                 with tf.variable_scope(tf.get_variable_scope(), reuse=i > 0):
                     y_pred_, y_pred_cls_, cost_ = fn(**{k : v[i] for k, v in in_splits.items()})
