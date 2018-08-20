@@ -275,8 +275,6 @@ def plot_confusion_matrix(data_cls_true, cls_pred, show_plt=False):
     cm = confusion_matrix(y_true=cls_true,
                           y_pred=cls_pred)
 
-    # Print the confusion matrix as text.
-    print(cm)
 
     if show_plt:
         # Plot the confusion matrix as an image.
@@ -294,3 +292,5 @@ def plot_confusion_matrix(data_cls_true, cls_pred, show_plt=False):
         # Ensure the plot is shown correctly with multiple plots
         # in a single Notebook cell.
         plt.show()
+
+    return cm
