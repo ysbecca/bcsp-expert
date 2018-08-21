@@ -7,12 +7,17 @@ import math
 from importlib import reload
 import matplotlib.pyplot as plt
 
-from myconfig import *
 from cnn_model import *
 
 import numpy as np
 
 
+if len(sys.argv) > 1:
+    case_start = int(sys.argv[1])
+    case_end = int(sys.argv[2])
+else:
+    case_start = 0
+    case_end = 50
 
 cnn_model = CNN_Model(total_k=2, name="Test-CNN-Model", pretrained_epochs=0, pretrained_model=False)
 
@@ -39,9 +44,4 @@ roi_pred, roi_true = cnn_model.get_roi_accuracy(cnn_model.train,
 							verbose=True,
 							save=True)
 
-# Saving the model
-# cnn_model.save_model(1, epochs=0)
-
 print("Exiting.")
-
-
