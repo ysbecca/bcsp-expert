@@ -27,16 +27,35 @@ from helper_functions import *
 
 class DataSet(object):
 
-  def __init__(self, wsi_ids, rois=False):
+  def __init__(self, wsi_ids, rois=[]):
 
     # one k-set parameter
     self.wsi_ids = wsi_ids
+    self.wsi_counts = [0] * len(wsi_ids)
     self.wsi_index = 0
     self._epochs_completed = 0
     self._index_in_epoch = 0
 
+
+    # Boolean to indicate how mnay times we have iterated through all of the k-set.
+    self.epoch_count = 0  
+
+    # Helper variable for weird edge case in next_batch function.
+    self.load_next_wsi = False
+
     # Set all parameters by loading the first set.
     self.read_next_patches_and_meta_test()
+
+  def reset_all(self):
+    ''' Resets the dataset to the first WSI of k-set. Does NOT reset epoch count. ''' 
+    old_wsi_index = self.wsi_index
+
+    self.wsi_index = 0
+    self._index_in_epoch = 0
+  
+    # If next pointer was not at 1, then loaded set is NOT 0.
+    if old_wsi_index != 1:
+      self.read_next_patches_and_meta_test()
 
   @property
   def images(self):
@@ -66,6 +85,9 @@ class DataSet(object):
   def epochs_completed(self):
     return self._epochs_completed
 
+  def reset_epoch_count(self):
+    self.epoch_count = 0
+
   def set_images(self, images):
     self._images = images
 
@@ -81,7 +103,7 @@ class DataSet(object):
         print("Cannot shuffle when", self.num_images, "images in set.")
         return
 
-    if not self._rois:
+    if len(self._rois) == 0:
 
       list_all = list(zip(self._images, self._labels, self._image_ids, self._coords))
       random.shuffle(list_all)
@@ -102,34 +124,82 @@ class DataSet(object):
       self._rois = np.array(self._rois)
 
 
-  def next_batch(self, batch_size, get_roi=False, augment=False):
+  def next_batch(self, batch_size, get_roi=False, augment=False, get_coords=False, stop_at_epoch=False):
     """Return the next `batch_size` examples from this data set."""
 
-    start = self._index_in_epoch
-    self._index_in_epoch += batch_size
+    if self.load_next_wsi:
+      self.read_next_patches_and_meta_test()
+      self.load_next_wsi = False
 
-    if self._index_in_epoch > self._num_images:
-      # Finished epoch
+
+    start = self._index_in_epoch
+
+    print("wsi_index pointer -------------- ", self.wsi_index)
+    
+    # Check if we are looking at the last batch of k-set, smaller than the last image (Getting test/valid accuracy) and returning it.
+    not_full_last_batch = (self._index_in_epoch + batch_size > self._num_images)
+    if stop_at_epoch and not_full_last_batch:
+      print("Returning uneven set - ", self._index_in_epoch, ":", self._num_images)
+
+      # If this was the last batch of the last image, then update epochs.
+      if self.wsi_index == 0:
+        self.epoch_count += 1
+        print("Setting epoch count to:", self.epoch_count)
+
+      else:
+        # Last batch of a non-last image.
+        self.load_next_wsi = True
+
+      # Reset pointer to first index again.
+      self._index_in_epoch = 0
+
+
+      if get_roi and not get_coords:
+        return self._images[start:], self._labels[start:], self._rois[start:]
+      elif get_roi and get_coords:
+        return self._images[start:], self._labels[start:], self._rois[start:], self._coords[start:]
+      else:
+        return self._images[start:], self._labels[start:]
+
+    elif not_full_last_batch:
+      # If next set is last, then update epochs.
+      if self.wsi_index == 0:
+        self.epoch_count += 1
+        print("Updated self.epoch_count to (last INCOMPLETE batch):", self.epoch_count)
+
+      # We don't want the last incomplete batch so load next set.
       self._epochs_completed += 1
 
-      # Load next set here and then return batch!
-      # Always check if wrapping back around to first image.
-      # TODO add on-the-fly data augmentation right HERE.
-      if self.wsi_index >= len(self.wsi_ids):
-        self.wsi_index = 0
-
+      # After resetting variables, fetch next wsi.
       self.read_next_patches_and_meta_test()
 
-      start = 0
-      self._index_in_epoch = batch_size
-      assert batch_size <= self._num_images
-    end = self._index_in_epoch
+      return self.next_batch(batch_size, get_roi=get_roi, augment=augment, get_coords=get_coords, stop_at_epoch=stop_at_epoch)
+
+    else: 
+
+      # OTHERWISE, we have a full batch to return.
+      self._index_in_epoch += batch_size
+      end = self._index_in_epoch
+
+      # If it's the last FULL batch of that last wsi, update epoch count and reset index pointer.
+      future_batch_size_check = (self._num_images - end < batch_size) and not stop_at_epoch
+      if self.wsi_index == 0 and (end == self._num_images or future_batch_size_check):
+
+        self.epoch_count += 1
+        print("Updated self.epoch_count to (last complete batch):", self.epoch_count)
+        self._index_in_epoch = 0
+        self._epochs_completed += 1
+
+      print("Returning from", start, ":", end)
+
+      if get_roi and not get_coords:
+        return self._images[start:end], self._labels[start:end], self._rois[start:end]
+      elif get_roi and get_coords:
+        return self._images[start:end], self._labels[start:end], self._rois[start:end], self._coords[start:end]
+      else:
+        return self._images[start:end], self._labels[start:end]
 
 
-    if not get_roi:
-      return self._images[start:end], self._labels[start:end]
-    else:
-      return self._images[start:end], self._labels[start:end], self._rois[start:end]
 
   def rotational_augment(self):
     print("Rotational augment...", end="")
@@ -168,7 +238,7 @@ class DataSet(object):
     ''' Reading the patches and meta for TEST patches into arrays. '''
 
     image_id = self.wsi_ids[self.wsi_index]
-    print("Reading wsi_index:", self.wsi_index)
+    print("len(wsi_ids):", len(self.wsi_ids))
 
     self._images = []
     self._labels = []
@@ -216,12 +286,32 @@ class DataSet(object):
         self._images.append(np.concatenate((flat_patches[0][i], flat_patches[1][i], flat_patches[2][i]), axis=2))
 
     flat_patches = None
-    print("After stacking:  ", np.shape(self._images))
-
-    self.wsi_index += 1
-    print("Current WSI index now:", self.wsi_index)
+    # print("After stacking:  ", np.shape(self._images))
 
     self._num_images = len(self._images)
+
+    # Remember count
+    self.wsi_counts[self.wsi_index] = self._num_images
+    print("*** WSI index loaded:", self.wsi_index)
+
+    
+    # Check for wrap-around here and only here.
+    if self.wsi_index + 1 == len(self.wsi_ids):
+      self.wsi_index = 0
+    else:
+      self.wsi_index += 1
+
+    print("*** Next WSI index:", self.wsi_index)
+
+
+    self._images = np.array(self._images)
+    self._labels = np.array(self._labels)
+    self._coords = np.array(self._coords)
+    self._rois = np.array(self._rois)
+    self._image_ids = np.array(self._image_ids)
+
+    # Reset index to front.
+    self._index_in_epoch = 0
 
 
 

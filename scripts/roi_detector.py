@@ -14,24 +14,33 @@ import numpy as np
 
 
 
-cnn_model = CNN_Model(total_k=1, name="Test-CNN-Model", pretrained_epochs=0, pretrained_model=False)
+cnn_model = CNN_Model(total_k=2, name="Test-CNN-Model", pretrained_epochs=0, pretrained_model=False)
 
 print(cnn_model)
 print("Model name:", cnn_model.name)
 print("Total k:", cnn_model.total_k)
 
-dataset = cnn_model.load_k_set(0, shuffle=False)
 
-print("Number of images in first WSI of k-set:", dataset.num_images)
-print("Image shapes:						  ", np.shape(dataset.images))
+# Training a model
+print("TRAINING ----------------- ")
+cnn_model.train_model(0, 1, epochs=1, 
+							verbose=True, 
+							dropout_keep_prob=0.9,
+							valid_interval=2,
+							show_valid_acc=False, 
+							train_interval=1)
 
-# 2-class accuracy
-print("Two-class accuracy based on image weak labels:")
-acc, cm, cls_pred = cnn_model.get_accuracy(dataset, show_conf_matrix=False, verbose=True, get_outputs=False)
-print(cm)
 
-# print("ROI accuracy based on fine ROI annotations:")
+# Computing ROI accuracy
+print("ROI accuracy based on fine ROI annotations:")
+roi_pred, roi_true = cnn_model.get_roi_accuracy(cnn_model.train, 
+							threshold=0.5,
+							show_conf_matrix=False,
+							verbose=True,
+							save=True)
 
+# Saving the model
+# cnn_model.save_model(1, epochs=0)
 
 print("Exiting.")
 

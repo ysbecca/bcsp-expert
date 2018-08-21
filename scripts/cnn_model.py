@@ -17,8 +17,12 @@ from importlib import reload
 import matplotlib.pyplot as plt
 
 from myconfig import *
+import time
+from datetime import datetime, timedelta
 
 import numpy as np
+import csv
+
 
 
 # In[2]:
@@ -56,12 +60,13 @@ class CNN_Model():
     
         self.valid = None
         self.train = None
+        self.epochs = 0
         
         # Initialises the TF session and loads pretrained model if it exists.
         
         # Build tensors.
         self.x = tf.placeholder(tf.float32, shape=[None, img_size_flat], name="x")
-        # tf.reshape(x, [-1, img_size, img_size, num_channels])
+        # tf.reshape(x, [-1, img_size, img_size, num__channels])
         self.x_image = tf.reshape(self.x, [-1, img_size, img_size, num_channels], name="x_image")
         
         #self.weights = tf.placeholder(tf.float32, shape=[None], name='weights')
@@ -76,7 +81,8 @@ class CNN_Model():
         if len(self.gpus) > 0:
             # Remember that this adds significant latency for CPU<->GPU copying of shared variables.
             # 2 GPU's is enough to get a good balance between speedup and minimal latency (12 GB on k80 nodes)
-            self.y_pred, self.y_pred_cls, self.cost = self.make_parallel(self.model, 
+            self.y_pred, self.y_pred_cls, self.cost = self.make_parallel(
+                                                    self.model, 
                                                      x_image_=self.x_image, 
                                                      y_true_=self.y_true)
                                                      #weights_=self.weights)
@@ -93,8 +99,9 @@ class CNN_Model():
         self.test_batch_size = test_batch_size * total_batches
     
         self.optimizer = tf.train.AdagradOptimizer(learning_rate=
-                                              learning_rate).minimize(self.cost, 
-                                                                      colocate_gradients_with_ops=True)
+                learning_rate).minimize(self.cost, 
+                                        colocate_gradients_with_ops=True)
+
         correct_prediction = tf.equal(self.y_pred_cls, self.y_true_cls)
         self.accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
     
@@ -109,6 +116,8 @@ class CNN_Model():
         # Load pretrained model
         if self.pretrained_model:
             self.restore_model(self.pretrained_model)
+
+
     
     
     def model(self, x_image_, y_true_):
@@ -163,9 +172,15 @@ class CNN_Model():
         return y_pred, y_pred_cls, cost
         
     
-    def train(self, k, valid_k, epochs, verbose=True, dropout_keep_prob=0.9, show_valid_acc=True):
+    def train_model(self, k, 
+                        valid_k, 
+                        epochs, 
+                        verbose=True, 
+                        valid_interval=100, 
+                        dropout_keep_prob=0.9, 
+                        show_valid_acc=True, 
+                        train_interval=10):
         ''' Train the network for the given number of epochs. '''
-        print("in")
         start_time = time.time()
         
         # Load k training set and valid_k set.
@@ -175,13 +190,14 @@ class CNN_Model():
         if show_valid_acc and not self.valid:
             self.load_valid_dataset(valid_k)
         
-        # Calculate the number of iterations required for one epoch.
-        iterations_per_epoch = int(math.ceil(self.train.num_images / self.train_batch_size))
-        iterations = iterations_per_epoch * epochs
-        
         # Optimise.
-        acc = self.optimize(self.train, iterations, dropout_keep_prob, verbose, show_valid_acc)
-        print("Epoch", epochs, "..................... Train accuracy:", acc)
+        acc = self.optimize(self.train, 
+                            epochs,
+                            dropout_keep_prob, 
+                            verbose, 
+                            show_valid_acc, 
+                            valid_interval=valid_interval,
+                            train_interval=train_interval)
         
         end_time = time.time()
         time_dif = end_time - start_time
@@ -190,126 +206,173 @@ class CNN_Model():
 
     
     def load_valid_dataset(self, valid_k):
-        self.valid = ds.read_k_dataset(valid_k, self.total_k, shuffle_all=True, do_augments=False)
+        self.valid = ds.read_k_dataset(valid_k, self.total_k, shuffle_all=True)
         
     def load_train_dataset(self, train_k):
-        self.train = ds.read_k_dataset(train_k, self.total_k, shuffle_all=True, do_augments=True)
+        self.train = ds.read_k_dataset(train_k, self.total_k, shuffle_all=True)
     
 
-    def get_roi_accuracy(self, dataset, cls_pred, threshold=0.5, 
-                            show_conf_matrix=True, verbose=True, get_outputs=False):
+    def get_roi_accuracy(self, dataset, threshold=0.5, 
+                            show_conf_matrix=True,
+                            verbose=True,
+                            save=False):
         ''' Computes the ROI accuracy given threshold and based on dataset.roi 
         '''
+        if dataset.wsi_index != 1:
+            dataset.reset_all()
+
         if not dataset:
             print("OUPS! No dataset loaded.")
-            return None, None, None
+            return None
 
         # Iterate through dataset and compare values above threshold for matching class
         # with whether it is within the ROI or not.
-        num_test = len(dataset.images)
+        cls_pred, cls_true, roi_true, coords = [], [], [], []
+        count = 0        
 
-        i = 0
+        start_epoch = dataset.epoch_count
 
-        while i < num_test:
-            j = min(i + test_batch_size, num_test)
-            curr_batch_size = j - i
+        # Brute force calculate how many batches. O.o
+        print("Total images in k-set:", sum(dataset.wsi_counts))
+        while dataset.epoch_count < start_epoch + 1:
+            x_batch, y_true_batch, roi_true_batch = dataset.next_batch(self.test_batch_size, 
+                            get_roi=True,
+                            stop_at_epoch=True)
 
-            # Get the images and targets from the test-set between index i and j.
-            images = dataset.images[i:j, :].reshape(curr_batch_size, img_size_flat)
-            labels = dataset.labels[i:j, :]
+            x_batch = x_batch.reshape(len(x_batch), img_size_flat)
+            feed_dict = {self.x: x_batch, self.y_true: y_true_batch, self.keep_prob: 1.0}
             
-            print(images.dtype)
-            print(np.shape(images))
-            print(np.shape(labels))
+            outs = self.session.run(self.y_pred, feed_dict=feed_dict)
+            for j, out in enumerate(outs):
+                cls_pred.append(out)
+                cls_true.append(y_true_batch[j])
+                roi_true.append(roi_true_batch[j])
             
-            #weights_ = np.ones((curr_batch_size))
-            feed_dict = {self.x: images, self.y_true: labels, self.keep_prob: 1.0}
-            
-            if get_outputs: # NON thresholded outputs
-                cls_pred[i:j] = self.session.run(self.y_true, feed_dict=feed_dict)
+            count += len(x_batch)
+            print("Count:", count)
+
+        # Calculate how many cls_preds are 1) correct AND 2) above the threshold.
+        cls_pred = np.array(cls_pred)
+        cls_true = np.array(cls_true)
+        roi_true = np.array(roi_true)
+
+        correct_cls = np.array(np.argmax(cls_pred, axis=1) == np.argmax(cls_true, axis=1))
+        # print("Correct class:   ", correct_cls)
+        # print("True ROI:        ", roi_true)
+        
+        selected_roi = np.where(correct_cls, np.where(np.max(cls_pred, axis=1) > threshold, 1, 0), 0)
+        # print("Found ROI:       ", selected_roi)
+
+        correct_roi = np.array(selected_roi == roi_true)
+        # print("Correct ROI:     ", correct_roi)
+
+        correct_sum = correct_roi.sum()
+        acc = float(correct_sum) / count
+
+        cm = cn.plot_confusion_matrix(correct_roi, cls_pred=selected_roi, show_plt=show_conf_matrix)
+        if len(cm) > 1: # If both arrays all 0 or all 1, then only 1-dim conf matrix.
+            if cm[1][1] + cm[1][0]:
+                recall = float(cm[1][1]) / (cm[1][1] + cm[1][0]) # TP / TP + FN
             else:
-                cls_pred[i:j] = self.session.run(self.y_pred_cls, feed_dict=feed_dict)
-            i = j
-
-        # TODO Define differently depending on valid / test and problem...
-        cls_true = [np.argmax(label) for label in dataset.labels]
-
-        # Create a boolean array whether each image is correctly classified.
-        correct = (cls_true == cls_pred)
-
-        correct_sum = correct.sum() # sum(1 for a, b in zip(cls_true, cls_pred) if a and b)
-        acc = float(correct_sum) / num_test
+                recall = 0.0
+        else:
+            recall = acc
 
         if verbose:
-            msg = "ACCURACY: {0:.1%} ({1} / {2})"
-            print(msg.format(acc, correct_sum, num_test))
-        
-        cm = cn.plot_confusion_matrix(cls_true, cls_pred=cls_pred, show_plt=show_conf_matrix)
+            msg = "ROI accuracy: {0:.1%} ({1} / {2})... Recall: {0:.1%}"
+            print(msg.format(acc, correct_sum, count, recall))
+
+        if save:
+            self.save_preds(dataset, selected_roi, cls_pred)
+
+        return np.array(selected_roi), np.array(roi_true)
+
+
+    def save_preds(self, dataset, selected_roi, cls_pred):
+        ''' Any wsi for which the count is unknown will end up saving an empty pred file. '''
+
+        print("len selected_roi", len(selected_roi))
+
+        print("dataset.wsi_index", dataset.wsi_index)
+        print("dataset.wsi_counts", dataset.wsi_counts)
+
+        curr = 0
+        for i, count in enumerate(dataset.wsi_counts):
             
-        return acc, cm, cls_pred
+            csv_name = str(dataset.wsi_ids[i]) + "_preds.csv"
+
+            with open(preds_dir + csv_name, 'w', newline='') as csvfile:
+                writer = csv.writer(csvfile, delimiter=' ', quotechar='|', quoting=csv.QUOTE_MINIMAL)
+                for j in range(curr, curr+count):
+                    row = [selected_roi[j], cls_pred[j][0], cls_pred[j][1]]
+                    writer.writerow(row)
+
+            curr += count
+        
 
 
-
-    def get_accuracy(self, dataset, show_conf_matrix=True, verbose=True, get_outputs=False):
+    def get_accuracy(self, dataset, 
+                        show_conf_matrix=True, 
+                        verbose=True, 
+                        get_outputs=False,
+                        acc_type=""):
         ''' Computes validation/test accuracy; used during training and as a standalone function. Batch
             size is test_batch_size since forward pass only. '''
         
         if not dataset:
             print("OUPS! No dataset loaded.")
-            return None, None, None
+            return None
             
-        # Calculate accuracy.
-        num_test = len(dataset.images)
 
-        cls_pred = np.zeros(shape=num_test, dtype=np.int)
-        i = 0
+        if dataset.wsi_index != 0:
+            dataset.reset_all()
 
-        while i < num_test:
-            j = min(i + test_batch_size, num_test)
-            curr_batch_size = j - i
+        # Calculate accuracy. HOW BIG IS THE SET? We don't know... :O
+        cls_pred = []
+        cls_true = []
+        count = 0
 
-            # Get the images and targets from the test-set between index i and j.
-            images = dataset.images[i:j, :].reshape(curr_batch_size, img_size_flat)
-            labels = dataset.labels[i:j, :]
-            
-            print(images.dtype)
-            print(np.shape(images))
-            print(np.shape(labels))
+        while dataset.epoch_count < 1: # TODO FIX
+
+            x_batch, y_true_batch = dataset.next_batch(test_batch_size, stop_at_epoch=True)
+            x_batch = x_batch.reshape(len(x_batch), img_size_flat)
             
             #weights_ = np.ones((curr_batch_size))
-            feed_dict = {self.x: images, self.y_true: labels, self.keep_prob: 1.0}
+            feed_dict = {self.x: x_batch, self.y_true: y_true_batch, self.keep_prob: 1.0}
             
-            if get_outputs: # NON thresholded outputs
-                cls_pred[i:j] = self.session.run(self.y_true, feed_dict=feed_dict)
+            if get_outputs: # NOT thresholded outputs
+                outs = self.session.run(self.y_pred, feed_dict=feed_dict)
             else:
-                cls_pred[i:j] = self.session.run(self.y_pred_cls, feed_dict=feed_dict)
-            i = j
+                outs = self.session.run(self.y_pred_cls, feed_dict=feed_dict)
+            
+            for j, out in enumerate(outs):
+                cls_pred.append(out)
+                cls_true.append(y_true_batch[j])
+            count += len(x_batch)
 
-        # TODO Define differently depending on valid / test and problem...
-        cls_true = [np.argmax(label) for label in dataset.labels]
+
+        # If getting Non-thresholded outputs, return with labels
+        if get_outputs:
+            return outs, cls_true
+
+        cls_true = [np.argmax(c) for c in cls_true]
 
         # Create a boolean array whether each image is correctly classified.
-        correct = (cls_true == cls_pred)
-
-        correct_sum = correct.sum() # sum(1 for a, b in zip(cls_true, cls_pred) if a and b)
-        acc = float(correct_sum) / num_test
+        correct = np.array(np.array(cls_true) == np.array(cls_pred))
+        correct_sum = correct.sum() 
+        
+        acc = float(correct_sum) / count
 
         if verbose:
-            msg = "ACCURACY: {0:.1%} ({1} / {2})"
-            print(msg.format(acc, correct_sum, num_test))
+            msg = acc_type + " Accuracy: {0:.1%} ({1} / {2})"
+            print(msg.format(acc, correct_sum, count))
         
         cm = cn.plot_confusion_matrix(cls_true, cls_pred=cls_pred, show_plt=show_conf_matrix)
-            
-        return acc, cm, cls_pred
+        print("Total patches loaded in dataset:", count)
+
+        dataset.reset_epoch_count()
+        return acc, cm, cls_true, cls_pred
         
-    
-    def get_outputs(self, k, shuffle=False, augment=False, thresholded=True):
-        ''' Retrieves the softmax outputs for a random k set and returns. '''
-        dataset = self.load_k_set(k, shuffle=shuffle, augment=augment)
-        
-        acc, cm, cls_pred = self.get_accuracy(dataset, show_conf_matrix=False, verbose=False, get_outputs=thresholded)
-        
-        return cls_pred
     
     def save_outputs(self, k, outputs):
         ''' Saves softmax outputs to a file. '''
@@ -344,7 +407,7 @@ class CNN_Model():
     
     # Saving and restoring models.
     def save_model(self, k, epochs=0):
-        model_name = 'm-' + datetime.datetime.now().strftime("%Y-%m-%d-%H-%M") + "-" + str(k) + "-" + str(epochs)
+        model_name = 'm-' + datetime.now().strftime("%Y-%m-%d-%H-%M") + "-" + str(k) + "-" + str(epochs)
         self.saver.save(self.session, checkpoints_dir + model_name)
         print("CNN Model saved for k=", k, ":", model_name)
         
@@ -354,46 +417,51 @@ class CNN_Model():
         output = self.saver.restore(sess=self.session, save_path=checkpoints_dir + model_name)
         print(output)
 
-    def optimize(self, dataset, num_iterations, dropout_keep_prob, verbose, show_valid_acc, valid_interval=100):
+    def optimize(self, dataset, 
+                        epochs,
+                        dropout_keep_prob, 
+                        verbose, 
+                        show_valid_acc, 
+                        valid_interval, 
+                        train_interval):
         ''' Optimises for the given number of iterations by batches. '''
-        total_iterations = 0
         
-        for i in range(total_iterations,
-                       total_iterations + num_iterations):
+        start_epoch = dataset.epoch_count
+        print("Starting training at epoch:", start_epoch)
+
+        while dataset.epoch_count < start_epoch + epochs:
+            print("Epoch count:", dataset.epoch_count)
+
             x_batch, y_true_batch = dataset.next_batch(train_batch_size)
             x_batch = x_batch.reshape(len(x_batch), img_size_flat)
 
             #weights_ = generate_batch_weights(y_true_pseudo)
             feed_dict_train = {self.x: x_batch, self.y_true: y_true_batch, self.keep_prob: dropout_keep_prob}
-            
-            if i % valid_interval and show_valid_acc:
-                acc, _, _ = self.get_accuracy(self.valid, show_conf_matrix=False)
-                msg = "Validation Accuracy:    {1:>6.1%}"
-                print(msg.format(acc), " Iterations: ", total_iterations)
+
+            if dataset.epoch_count % valid_interval == 0 and show_valid_acc:
+                acc, _, _, _ = self.get_accuracy(self.valid, show_conf_matrix=False, acc_type="Validation")
+                msg = "Validation Accuracy:    {0:>6.1%}  Epochs: {1}"
+                print(msg.format(acc, dataset.epoch_count))
 
             self.session.run(self.optimizer, feed_dict=feed_dict_train)
 
-        acc = self.session.run(self.accuracy, feed_dict=feed_dict_train)
-        total_iterations += num_iterations
-        
-        if verbose:
-            msg = "Training Accuracy:      {1:>6.1%}"
-            print(msg.format(acc), " Iterations: ", total_iterations)
-        
+            if dataset.epoch_count % train_interval == 0:
+                acc = self.session.run(self.accuracy, feed_dict=feed_dict_train)
+                msg = "Training Accuracy:      {0:>6.1%}  Epochs:    {1}"
+                print(msg.format(acc, dataset.epoch_count))        
+
+
+        self.epochs += epochs
+
         return acc
 
 
-# Now let's try the class.
+    def close_session(self):
+        print("Closing TensorFlow session.")
+        self.session.close()
 
-# In[10]:
-
-
-
-# In[ ]:
-
-
-
-
+    def reset_epochs(self):
+        self.epochs = 0
 
 
 

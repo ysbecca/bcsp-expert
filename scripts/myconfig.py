@@ -27,14 +27,14 @@ test_db_dir = "/Users/ysbecca/ysbecca-projects/bcsp-expert/data/temp_db/"
 xml_dir = "/Users/ysbecca/ysbecca-projects/bcsp-expert/annotations/test_set/"
 
 
-# if len(sys.argv) > 1:
-	# case_start = int(sys.argv[1])
-	# case_end = int(sys.argv[2])
-# else:
-case_start = 0
-case_end = 50
+# Directories
+model_dir = "/nobackup/sc16rsmy/bcsp-expert-cases/"
+checkpoints_dir = ""
 
-print("Case start, end: ", case_start, case_end)
+# ROI and pred outputs
+preds_dir = ""
+
+# print("Case start, end: ", case_start, case_end)
 
 folder_prefix = "Case_"
 base_patch_size = 256
@@ -77,10 +77,5 @@ fc_sizes = [256, 128]
 num_classes = 2
 
 # Training params
-train_batch_size = 4
-test_batch_size = 4
-
-
-# Directories
-model_dir = ""
-checkpoints_dir = ""
+train_batch_size = 8
+test_batch_size = 6            

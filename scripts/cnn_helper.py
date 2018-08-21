@@ -49,6 +49,7 @@ import csv
 
 
 
+
 def write_test_predictions(dataset, fname):
     ''' Pass data.test object. fname does not include .csv extension. '''
     prediction_root = "./test_predictions/"
@@ -262,7 +263,7 @@ def plot_conv_layer(img_size_flat, x, session, layer, image):
     # in a single Notebook cell.
     plt.show()
 
-def plot_confusion_matrix(data_cls_true, cls_pred, show_plt=False):
+def plot_confusion_matrix(data_cls_true, cls_pred, num_classes=2, show_plt=False):
     # This is called from print_test_accuracy() below.
 
     # cls_pred is an array of the predicted class-number for
@@ -275,14 +276,12 @@ def plot_confusion_matrix(data_cls_true, cls_pred, show_plt=False):
     cm = confusion_matrix(y_true=cls_true,
                           y_pred=cls_pred)
 
-
     if show_plt:
         # Plot the confusion matrix as an image.
         plt.matshow(cm)
 
         # Make various adjustments to the plot.
         plt.colorbar()
-        num_classes = 4
         tick_marks = np.arange(num_classes)
         plt.xticks(tick_marks, range(num_classes))
         plt.yticks(tick_marks, range(num_classes))
