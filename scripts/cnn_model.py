@@ -233,12 +233,15 @@ class CNN_Model():
 
         start_epoch = dataset.epoch_count
 
-        # Brute force calculate how many batches. O.o
-        print("Total images in k-set:", sum(dataset.wsi_counts))
+        values = [0, 0]
         while dataset.epoch_count < start_epoch + 1:
             x_batch, y_true_batch, roi_true_batch = dataset.next_batch(self.test_batch_size, 
                             get_roi=True,
                             stop_at_epoch=True)
+
+            # Compensate for uneven batch size by replicating last image.
+            x_batch, y_true_batch, roi_true_batch  = self.adjust_batch_size([x_batch, y_true_batch, roi_true_batch])
+
 
             x_batch = x_batch.reshape(len(x_batch), img_size_flat)
             feed_dict = {self.x: x_batch, self.y_true: y_true_batch, self.keep_prob: 1.0}
@@ -250,7 +253,6 @@ class CNN_Model():
                 roi_true.append(roi_true_batch[j])
             
             count += len(x_batch)
-            print("Count:", count)
 
         # Calculate how many cls_preds are 1) correct AND 2) above the threshold.
         cls_pred = np.array(cls_pred)
@@ -288,6 +290,14 @@ class CNN_Model():
 
         return np.array(selected_roi), np.array(roi_true)
 
+    def adjust_batch_size(self, lists):
+        ''' Makes sure batch size is evenly divisible by number of gpus. '''
+        mod = len(l[0]) % len(self.gpus)
+        for n in range(mod):
+            for l in lists:
+                l.append(l[-1])
+
+        return lists
 
     def save_preds(self, dataset, selected_roi, cls_pred):
         ''' Any wsi for which the count is unknown will end up saving an empty pred file. '''
@@ -309,8 +319,6 @@ class CNN_Model():
                     writer.writerow(row)
 
             curr += count
-        
-
 
     def get_accuracy(self, dataset, 
                         show_conf_matrix=True, 
@@ -328,14 +336,17 @@ class CNN_Model():
         if dataset.wsi_index != 0:
             dataset.reset_all()
 
-        # Calculate accuracy. HOW BIG IS THE SET? We don't know... :O
         cls_pred = []
         cls_true = []
         count = 0
 
         while dataset.epoch_count < 1: # TODO FIX
 
-            x_batch, y_true_batch = dataset.next_batch(test_batch_size, stop_at_epoch=True)
+            x_batch, y_true_batch = dataset.next_batch(test_batch_size, 
+                                                    stop_at_epoch=True)
+
+            
+
             x_batch = x_batch.reshape(len(x_batch), img_size_flat)
             
             #weights_ = np.ones((curr_batch_size))
@@ -434,6 +445,8 @@ class CNN_Model():
             print("Epoch count:", dataset.epoch_count)
 
             x_batch, y_true_batch = dataset.next_batch(train_batch_size)
+            x_batch, y_true_batch = self.adjust_batch_size([x_batch, y_true_batch])
+
             x_batch = x_batch.reshape(len(x_batch), img_size_flat)
 
             #weights_ = generate_batch_weights(y_true_pseudo)
