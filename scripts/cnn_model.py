@@ -11,6 +11,7 @@
 import tensorflow as tf
 import cnn_helper as cn
 import dataset as ds
+
 from tensorflow.python.client import device_lib
 import math
 from importlib import reload

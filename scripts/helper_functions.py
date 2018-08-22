@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import csv
 
 
-from roi_detector import case_start, case_end
+from myconfig import case_start, case_end
 
 # Loads csv cases from file
 def load_cases(csv_name):
