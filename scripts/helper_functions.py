@@ -6,16 +6,18 @@ import matplotlib.pyplot as plt
 import csv
 
 
+from roi_detector import case_start, case_end
+
 # Loads csv cases from file
-def load_cases(csv_name, is_test=False):
+def load_cases(csv_name):
     cases, gtruth = [], []
     with open(csv_name, 'r') as csvfile:
         r = csv.reader(csvfile, delimiter=',', quotechar='|')
         for row in r:
             cases.append(row[0])
-            if is_test:
-                gtruth.append(row[1])
-    return cases, gtruth
+            gtruth.append(row[1])
+
+    return cases[case_start:case_end], gtruth[case_start:case_end]
 
 # Helper timing functions.
 def start_timer():

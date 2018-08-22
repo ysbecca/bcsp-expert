@@ -19,6 +19,11 @@ else:
     case_start = 0
     case_end = 50
 
+
+from myconfig import *
+
+
+
 cnn_model = CNN_Model(total_k=2, name="Test-CNN-Model", pretrained_epochs=0, pretrained_model=False)
 
 print(cnn_model)
