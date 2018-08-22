@@ -30,6 +30,10 @@ from helper_functions import *
 # In[7]:
 
 
+case_start = int(sys.argv[1])
+case_end = int(sys.argv[2])
+
+print("Start:end ", case_start, case_end)
 cases, gtruth = load_cases(csv_name)
 
 cases = cases[case_start:case_end]
@@ -250,17 +254,17 @@ for c, case in enumerate(cases):
                                 rois.append(is_roi)
                                 coords.append(np.array([x, y]))
                                 meta_count += 1
-                                print("Meta count .............. ", meta_count)
+                                #print("Meta count .............. ", meta_count)
                             else:
                                 break_out = True # Out of the for loop; no saving.
                         
-                        if not break_out:
+                        elif i > 0 and not break_out:
                             # All patches downsampled to the base patch size.
                             new_tile = np.array(Image.fromarray(new_tile).resize((base_patch_size, base_patch_size)))                        
                             patches[i].append(new_tile)
                             patch_count += 1
-                            if patch_count % 2 == 0:
-                                print("Patch count ------------------", int(patch_count / 2))
+                            #if patch_count % 2 == 0:
+                            #    print("Patch count ------------------", int(patch_count / 2))
                             total_count += 1
                             batch_count += 1
                             # if batch_count >= end_stop:
