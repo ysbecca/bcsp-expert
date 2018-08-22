@@ -28,8 +28,8 @@ xml_dir = "/home/ufaserv1_k/sc16rsmy/bcsp-expert/annotations/test_set/"
 
 
 # Directories
-model_dir = "/nobackup/sc16rsmy/bcsp-expert-cases/"
-checkpoints_dir = ""
+model_dir = "/nobackup/sc16rsmy/bcsp-expert-cases/checkpoints-bcsp"
+checkpoints_dir = model_dir
 
 # ROI and pred outputs
 preds_dir = ""
