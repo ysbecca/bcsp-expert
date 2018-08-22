@@ -2,23 +2,14 @@
 import tensorflow as tf
 import cnn_helper as cn
 import dataset as ds
+
 from tensorflow.python.client import device_lib
 import math
 from importlib import reload
 import matplotlib.pyplot as plt
 
 from cnn_model import *
-
 import numpy as np
-
-
-if len(sys.argv) > 1:
-    case_start = int(sys.argv[1])
-    case_end = int(sys.argv[2])
-else:
-    case_start = 0
-    case_end = 50
-
 
 from myconfig import *
 
