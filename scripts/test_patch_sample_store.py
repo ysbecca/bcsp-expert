@@ -30,12 +30,12 @@ from helper_functions import *
 # In[7]:
 
 
-cases, gtruth = load_cases(csv_name, is_test=True)
+cases, gtruth = load_cases(csv_name)
 
 cases = cases[case_start:case_end]
 gtruth = gtruth[case_start:case_end]
 
-# hello....
+
 
 # For testing time requirements
 # start_range = 0
@@ -219,10 +219,13 @@ for c, case in enumerate(cases):
         else:
             label = [0, 1]
 
+        meta_count = 0
+        patch_count = 0
+
         patches_per_batch = chunk_size * samples_per_patch
         batch_count = 0
         # For test only -- end_stop
-        end_stop, stop = 10*samples_per_patch, False
+        # end_stop, stop = 10*samples_per_patch, False
         while y < slide_dims[1] + initial_offset:
             while x < slide_dims[0] + initial_offset:
                 #print("x, y:", x, "/", slide_dims[0], ",", y, "/", slide_dims[1])
@@ -246,6 +249,8 @@ for c, case in enumerate(cases):
                                 labels.append(label)
                                 rois.append(is_roi)
                                 coords.append(np.array([x, y]))
+                                meta_count += 1
+                                print("Meta count .............. ", meta_count)
                             else:
                                 break_out = True # Out of the for loop; no saving.
                         
@@ -253,10 +258,13 @@ for c, case in enumerate(cases):
                             # All patches downsampled to the base patch size.
                             new_tile = np.array(Image.fromarray(new_tile).resize((base_patch_size, base_patch_size)))                        
                             patches[i].append(new_tile)
+                            patch_count += 1
+                            if patch_count % 2 == 0:
+                                print("Patch count ------------------", int(patch_count / 2))
                             total_count += 1
                             batch_count += 1
-                            if batch_count >= end_stop:
-                                stop = True
+                            # if batch_count >= end_stop:
+                                # stop = True
                 
                 if batch_count >= patches_per_batch:
                     # Write entire batch to h5 file and clear memory.
@@ -264,12 +272,12 @@ for c, case in enumerate(cases):
                     datasets, written_count = store_hdf5(datasets, patches, written_count)
                     patches = base_patches # Reset.
                     batch_count = 0
-                    if stop:
-                        break
+                    # if stop:
+                        # break
 
                 x += patch_sizes[0] # Full patch stride.
-                if stop:
-                    break
+                # if stop:
+                    # break
             y += patch_sizes[0]
             x = initial_offset
  
