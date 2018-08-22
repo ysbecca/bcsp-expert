@@ -251,8 +251,8 @@ class DataSet(object):
     #     patch_files.append(str(image_id) + "_T_" + str(i) + ".h5")
     
 
-    patch_file = str(image_id) + "_T_" + 
-    csv_file = str(image_id) + "_T_" + str(patch_index) + ".csv"
+    patch_file = str(image_id) + "_T_" + str(patch_index) + ".h5"
+    csv_file = str(image_id) + "_T.csv"
 
     patch_files.append(patch_file)
 
@@ -272,6 +272,14 @@ class DataSet(object):
 
     # flat_patches = [[], [], []]
 
+    print("Read csv.")
+    print("Labels:", np.shape(self._labels))
+    print("Coords:", np.shape(self._coords))
+    print("Rois:", np.shape(self._rois))
+    print("Image ids:", np.shape(self._image_ids))
+
+
+    count = 0
     # Now read patches
     for i, p in enumerate(patch_files):
         # Now load the images from H5 file
@@ -280,6 +288,9 @@ class DataSet(object):
         for patch in new_patches:
             # flat_patches[i].append(np.array(patch))
             self._images.append(np.array(patch))
+            count+=1
+            if count % 1000 == 0:
+              print("Count...............................", count)
 
         del new_patches
         file.close()
