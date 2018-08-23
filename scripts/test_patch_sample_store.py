@@ -145,6 +145,7 @@ def store_csv_meta(dir_path, coords, labels, rois, csv_name):
 def store_hdf5(datasets, patches, written_count):
     ''' Saves sub-set of patches into hdf5 file. '''
     p_count = len(patches[0])
+    print("------------------------------ p_count:", p_count)
     if p_count > 0:
         # Resize dataset, then write to new expanded shape.
         for i in range(samples_per_patch):
@@ -178,7 +179,7 @@ for c, case in enumerate(cases):
 
         print("Created files:", h5_files)
         datasets = []
-        chunk_size = 1500
+        chunk_size = 100
         for j in range(samples_per_patch):
             datasets.append(h5_files[j].create_dataset(
                 'dataset',
@@ -199,11 +200,10 @@ for c, case in enumerate(cases):
 
         x, y = initial_offset, initial_offset
         written_count, total_count = 0, 0
-        patches, coords, labels, rois = [], [], [], []
+        patches, base_patches, coords, labels, rois = [], [], [], [], []
         for i in range(samples_per_patch):
             patches.append([]) # samples_per_patch patches for each x, y sampling position
-
-        base_patches = patches
+            base_patches.append([])
 
         regions = load_xml_regions(image_id)[0]
         print("Found", len(regions), "region(s).")
@@ -258,10 +258,10 @@ for c, case in enumerate(cases):
                     # All patches downsampled to the base patch size.
                     new_tile = np.array(Image.fromarray(new_tile).resize((base_patch_size, base_patch_size)))                        
                     patches[0].append(new_tile)
-                    patch_count += 1
+                    total_count += 1
                     batch_count += 1
 
-                    # print("Patch count ------------------", int(patch_count))
+                    # print("Patch count ------------------", int(total_count))
 
                 if add_patch:
                     for i in range(1, samples_per_patch):
@@ -273,8 +273,7 @@ for c, case in enumerate(cases):
 
                         new_tile = np.array(Image.fromarray(new_tile).resize((base_patch_size, base_patch_size)))                        
                         patches[i].append(new_tile)
-                        patch_count += 1
-                        # print("Patch count ------------------", int(patch_count))
+                        # print("Patch count ------------------", int(total_count))
 
                         total_count += 1
                         batch_count += 1
