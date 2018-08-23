@@ -200,10 +200,9 @@ for c, case in enumerate(cases):
 
         x, y = initial_offset, initial_offset
         written_count, total_count = 0, 0
-        patches, base_patches, coords, labels, rois = [], [], [], [], []
+        patches, coords, labels, rois = [], [], [], []
         for i in range(samples_per_patch):
             patches.append([]) # samples_per_patch patches for each x, y sampling position
-            base_patches.append([])
 
         regions = load_xml_regions(image_id)[0]
         print("Found", len(regions), "region(s).")
@@ -283,7 +282,7 @@ for c, case in enumerate(cases):
                     # Write entire batch to h5 file and clear memory.
                     print("batch_count >= patches_per_batch at", batch_count, ", total_count", total_count)
                     datasets, written_count = store_hdf5(datasets, patches, written_count)
-                    patches = base_patches # Reset.
+                    patches = [[], []] # Reset.
                     batch_count = 0
 
                 x += patch_sizes[0] # Full patch stride.
