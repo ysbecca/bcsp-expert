@@ -234,56 +234,61 @@ for c, case in enumerate(cases):
             while x < slide_dims[0] + initial_offset:
                 #print("x, y:", x, "/", slide_dims[0], ",", y, "/", slide_dims[1])
                 is_roi = 0
-                break_out = False
-                for i in range(samples_per_patch):
-                    if not break_out:
+                add_patch = False
 
+                # Read tile at first resolution.
+                x_ = x - int(0.5*patch_sizes[0])
+                y_ = y - int(0.5*patch_sizes[0])
+                new_tile = np.array(slide.read_region((x_, y_), level, (patch_sizes[0], patch_sizes[0])))[:,:,:3]
+
+                # Check if it is suitable.
+                if not image_is_background(new_tile):
+                    # Get roi label.
+                    point_ = (x/annotation_downsample, y/annotation_downsample)
+                    is_roi = check_is_roi(polys, regions, max_pts, min_pts, point_)
+
+                    add_patch = True
+                    # Add label, coordinate, coords values only once.
+                    labels.append(label)
+                    rois.append(is_roi)
+                    coords.append(np.array([x, y]))
+                    meta_count += 1
+                    print("Meta count .............. ", meta_count)
+
+                    # All patches downsampled to the base patch size.
+                    new_tile = np.array(Image.fromarray(new_tile).resize((base_patch_size, base_patch_size)))                        
+                    patches[i].append(new_tile)
+                    patch_count += 1
+                    print("Patch count ------------------", int(patch_count))
+
+                if add_patch:
+                    for i in range(1, samples_per_patch):
+                            
+                        # Read tile at correct resolution.
                         x_ = x - int(0.5*patch_sizes[i])
                         y_ = y - int(0.5*patch_sizes[i])
                         new_tile = np.array(slide.read_region((x_, y_), level, (patch_sizes[i], patch_sizes[i])))[:,:,:3]
 
-                        # The background test and label is always based on the first patch size.
-                        if i == 0: 
-                            if not image_is_background(new_tile):
-                                # Get roi label.
-                                point_ = (x/annotation_downsample, y/annotation_downsample)
-                                is_roi = check_is_roi(polys, regions, max_pts, min_pts, point_)
+                        new_tile = np.array(Image.fromarray(new_tile).resize((base_patch_size, base_patch_size)))                        
+                        patches[i].append(new_tile)
+                        patch_count += 1
+                        print("Patch count ------------------", int(patch_count))
 
-                                # Add label, coordinate, coords values only once.
-                                labels.append(label)
-                                rois.append(is_roi)
-                                coords.append(np.array([x, y]))
-                                meta_count += 1
-                                #print("Meta count .............. ", meta_count)
-                            else:
-                                break_out = True # Out of the for loop; no saving.
-                        
-                        elif i > 0 and not break_out:
-                            # All patches downsampled to the base patch size.
-                            new_tile = np.array(Image.fromarray(new_tile).resize((base_patch_size, base_patch_size)))                        
-                            patches[i].append(new_tile)
-                            patch_count += 1
-                            #if patch_count % 2 == 0:
-                            #    print("Patch count ------------------", int(patch_count / 2))
-                            total_count += 1
-                            batch_count += 1
-                            # if batch_count >= end_stop:
-                                # stop = True
-                
+                        total_count += 1
+                        batch_count += 1
+                    
                 if batch_count >= patches_per_batch:
                     # Write entire batch to h5 file and clear memory.
                     print("batch_count >= patches_per_batch at", batch_count, ", total_count", total_count)
                     datasets, written_count = store_hdf5(datasets, patches, written_count)
                     patches = base_patches # Reset.
                     batch_count = 0
-                    # if stop:
-                        # break
 
                 x += patch_sizes[0] # Full patch stride.
-                # if stop:
-                    # break
             y += patch_sizes[0]
             x = initial_offset
+
+
  
         # Last batch (may be incomplete).
         if total_count > written_count:

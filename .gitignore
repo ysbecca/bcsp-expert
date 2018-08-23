@@ -8,6 +8,8 @@ __pycache__/
 
 scripts/myconfig.py
 
+myconfig.py
+
 saved_images/
 test_annotations_roi/
 annotated_test_images/
