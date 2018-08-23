@@ -178,7 +178,7 @@ for c, case in enumerate(cases):
 
         print("Created files:", h5_files)
         datasets = []
-        chunk_size = 1000
+        chunk_size = 1500
         for j in range(samples_per_patch):
             datasets.append(h5_files[j].create_dataset(
                 'dataset',
@@ -253,13 +253,15 @@ for c, case in enumerate(cases):
                     rois.append(is_roi)
                     coords.append(np.array([x, y]))
                     meta_count += 1
-                    print("Meta count .............. ", meta_count)
+                    # print("Meta count .............. ", meta_count)
 
                     # All patches downsampled to the base patch size.
                     new_tile = np.array(Image.fromarray(new_tile).resize((base_patch_size, base_patch_size)))                        
-                    patches[i].append(new_tile)
+                    patches[0].append(new_tile)
                     patch_count += 1
-                    print("Patch count ------------------", int(patch_count))
+                    batch_count += 1
+
+                    # print("Patch count ------------------", int(patch_count))
 
                 if add_patch:
                     for i in range(1, samples_per_patch):
@@ -272,10 +274,11 @@ for c, case in enumerate(cases):
                         new_tile = np.array(Image.fromarray(new_tile).resize((base_patch_size, base_patch_size)))                        
                         patches[i].append(new_tile)
                         patch_count += 1
-                        print("Patch count ------------------", int(patch_count))
+                        # print("Patch count ------------------", int(patch_count))
 
                         total_count += 1
                         batch_count += 1
+                    add_patch = False
                     
                 if batch_count >= patches_per_batch:
                     # Write entire batch to h5 file and clear memory.
