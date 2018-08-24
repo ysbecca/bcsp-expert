@@ -292,8 +292,8 @@ class DataSet(object):
             if count % 1000 == 0:
               print("Count...............................", count)
 
-        del new_patches
-        file.close()
+        #del new_patches
+        file_.close()
         
     print("Before stacking: ", np.shape(flat_patches))
     # Stack patches into blocks
