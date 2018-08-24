@@ -179,7 +179,7 @@ for c, case in enumerate(cases):
 
         print("Created files:", h5_files)
         datasets = []
-        chunk_size = 100
+        chunk_size = 1000
         for j in range(samples_per_patch):
             datasets.append(h5_files[j].create_dataset(
                 'dataset',
@@ -282,7 +282,7 @@ for c, case in enumerate(cases):
                     # Write entire batch to h5 file and clear memory.
                     print("batch_count >= patches_per_batch at", batch_count, ", total_count", total_count)
                     datasets, written_count = store_hdf5(datasets, patches, written_count)
-                    patches = [[], []] # Reset.
+                    patches = [[], [], []] # Reset.
                     batch_count = 0
 
                 x += patch_sizes[0] # Full patch stride.

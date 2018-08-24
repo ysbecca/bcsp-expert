@@ -6,6 +6,11 @@ __pycache__/
 # C extensions
 *.so
 
+
+*.sh
+*.sh.e*
+*.sh.o*
+
 scripts/myconfig.py
 
 myconfig.py
