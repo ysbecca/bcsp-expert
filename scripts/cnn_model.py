@@ -380,7 +380,7 @@ class CNN_Model():
             print(msg.format(acc, correct_sum, count))
         
         cm = cn.plot_confusion_matrix(cls_true, cls_pred=cls_pred, show_plt=show_conf_matrix)
-        print("Total patches loaded in dataset:", count)
+        # print("Total patches loaded in dataset:", count)
 
         dataset.reset_epoch_count()
         return acc, cm, cls_true, cls_pred
@@ -443,10 +443,10 @@ class CNN_Model():
         ''' Optimises for the given number of iterations by batches. '''
         
         start_epoch = dataset.epoch_count
-        print("Starting training at epoch:", start_epoch)
+        # print("Starting training at epoch:", start_epoch)
 
         while dataset.epoch_count < start_epoch + epochs:
-            print("Epoch count:", dataset.epoch_count)
+            # print("Epoch count:", dataset.epoch_count)
 
             x_batch, y_true_batch = dataset.next_batch(train_batch_size)
             x_batch, y_true_batch = self.adjust_batch_size([x_batch, y_true_batch])

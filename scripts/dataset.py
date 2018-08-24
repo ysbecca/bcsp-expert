@@ -289,7 +289,7 @@ class DataSet(object):
         for patch in new_patches:
             flat_patches[i].append(np.array(patch))
             count+=1
-            if count % 1000 == 0:
+            if count % 5000 == 0:
               print("Count...............................", count)
 
         del new_patches
