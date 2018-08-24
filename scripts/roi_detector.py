@@ -34,7 +34,7 @@ test_k = 4
 valid_k = -1
 train_ks = [0, 1, 2, 3]
 
-for e in total_epochs:
+for e in range(total_epochs):
 	for train_k in train_ks:
 		cnn_model.train_model(train_k, valid_k, epochs=1, 
 									verbose=True,
