@@ -30,9 +30,10 @@ print(cnn_model)
 print("Model name:", cnn_model.name)
 print("Total k:", cnn_model.total_k)
 
-test_k = 4
+test_k = 3
+train_ks = [0, 1, 2]
+# Not using validation set.
 valid_k = -1
-train_ks = [0, 1, 2, 3]
 
 for e in range(total_epochs):
 	for train_k in train_ks:
