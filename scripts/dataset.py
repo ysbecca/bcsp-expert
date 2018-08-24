@@ -247,14 +247,12 @@ class DataSet(object):
     self._coords = []
 
     patch_files = []
-    # for i in range(samples_per_patch):
-    #     patch_files.append(str(image_id) + "_T_" + str(i) + ".h5")
+    for i in range(samples_per_patch):
+        patch_files.append(str(image_id) + "_T_" + str(i) + ".h5")
     
 
-    patch_file = str(image_id) + "_T_" + str(patch_index) + ".h5"
+    # patch_file = str(image_id) + "_T_" + str(patch_index) + ".h5"
     csv_file = str(image_id) + "_T.csv"
-
-    patch_files.append(patch_file)
 
     # First read patch meta data
     with open(test_db_dir + csv_file, newline='') as metafile:
@@ -270,7 +268,9 @@ class DataSet(object):
             self._rois.append(int(row[3]))
             self._image_ids.append(image_id)
 
-    # flat_patches = [[], [], []]
+    flat_patches = []
+    for i in range(samples_per_patch):
+      flat_patches.append([])
 
     print("Read csv.")
     print("Labels:", np.shape(self._labels))
@@ -286,8 +286,8 @@ class DataSet(object):
         file = h5py.File(test_db_dir + p,'r+')
         new_patches = np.array(file['dataset']).astype('float32')
         for patch in new_patches:
-            # flat_patches[i].append(np.array(patch))
-            self._images.append(np.array(patch))
+            flat_patches[i].append(np.array(patch))
+            # self._images.append(np.array(patch))
             count+=1
             if count % 1000 == 0:
               print("Count...............................", count)
@@ -295,13 +295,14 @@ class DataSet(object):
         del new_patches
         file.close()
         
-    # print("Before stacking: ", np.shape(flat_patches))
+    print("Before stacking: ", np.shape(flat_patches))
     # Stack patches into blocks
 
-    # for i in range(np.shape(flat_patches)[1]):
-    #     self._images.append(np.concatenate((flat_patches[0][i], flat_patches[1][i], flat_patches[2][i]), axis=2))
+    # TODO add flat_patches[2][i] back in!
+    for i in range(np.shape(flat_patches)[1]):
+        self._images.append(np.concatenate((flat_patches[0][i], flat_patches[1][i]), axis=samples_per_patch))
 
-    # flat_patches = None
+    flat_patches = None
     print("After reading image_id:", image_id, " shape is:  ", np.shape(self._images))
 
     self._num_images = len(self._images)

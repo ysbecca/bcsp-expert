@@ -292,7 +292,7 @@ class CNN_Model():
 
     def adjust_batch_size(self, lists):
         ''' Makes sure batch size is evenly divisible by number of gpus. '''
-        mod = len(l[0]) % len(self.gpus)
+        mod = len(lists[0]) % len(self.gpus)
         for n in range(mod):
             for l in lists:
                 l.append(l[-1])
@@ -398,7 +398,11 @@ class CNN_Model():
         return ds.read_k_dataset(k, self.total_k, shuffle_all=shuffle)
     
     def __get_gpus(self):
-        return [x.name for x in device_lib.list_local_devices() if x.device_type == 'GPU']
+        gpus = [x.name for x in device_lib.list_local_devices() if x.device_type == 'GPU']
+        if len(gpus) == 0:
+            return ['cpu']
+        else:
+            return gpus
     
     def make_parallel(self, fn, **kwargs):
         ''' Splits the model across available GPUs. '''
@@ -419,7 +423,7 @@ class CNN_Model():
     
     # Saving and restoring models.
     def save_model(self, k, epochs=0):
-        model_name = 'm-' + datetime.now().strftime("%Y-%m-%d-%H-%M") + "-" + str(k) + "-" + str(epochs)
+        model_name = self.name + '-' + datetime.now().strftime("%Y-%m-%d-%H-%M") + "-" + str(k) + "-" + str(epochs)
         self.saver.save(self.session, checkpoints_dir + model_name)
         print("CNN Model saved for k=", k, ":", model_name)
         
