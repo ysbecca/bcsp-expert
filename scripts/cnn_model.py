@@ -298,22 +298,33 @@ class CNN_Model():
 
         print(np.shape(lists[0]))
         print(np.shape(lists[1]))
-        print(np.shape(lists[2]))
 
-        a, b, c = lists[0].tolist(), lists[1].tolist(), lists[2].tolist()
+        third_list = False
+        if len(lists) > 2:
+            third_list = True
+            print(np.shape(lists[2]))
+            c = lists[2].tolist()
 
+        a, b = lists[0].tolist(), lists[1].tolist() 
+        
         for n in range(to_add):
             a.append(lists[0][-1])
             b.append(lists[1][-1])
-            c.append(lists[2][-1])
+            if third_list:
+                c.append(lists[2][-1])
 
-        a, b, c = np.array(a), np.array(b), np.array(c)
-
+        a, b = np.array(a), np.array(b)
         print(np.shape(a))
         print(np.shape(b))
-        print(np.shape(c))
+        
+        if third_list:
+            c = np.array(c)
+            print(np.shape(c))
 
-        return lists
+        if third_list:
+            return a, b, c
+        else:
+            return a, b
 
     def save_preds(self, dataset, selected_roi, cls_pred):
         ''' Any wsi for which the count is unknown will end up saving an empty pred file. '''
