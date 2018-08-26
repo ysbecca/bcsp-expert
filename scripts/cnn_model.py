@@ -313,7 +313,7 @@ class CNN_Model():
         print(np.shape(b))
         print(np.shape(c))
 
-        return lists
+        return a, b, c 
 
     def save_preds(self, dataset, selected_roi, cls_pred):
         ''' Any wsi for which the count is unknown will end up saving an empty pred file. '''
