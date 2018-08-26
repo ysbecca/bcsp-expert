@@ -299,7 +299,7 @@ class DataSet(object):
     
     # Stack patches into blocks
     for i in range(np.shape(flat_patches)[1]):
-        self._images.append(np.concatenate((flat_patches[0][i], flat_patches[1][i], flat_patches[2][i]), axis=samples_per_patch))
+        self._images.append(np.concatenate((flat_patches[0][i], flat_patches[1][i], flat_patches[2][i]), axis=2))
 
     flat_patches = None
     print("After reading image_id:", image_id, " shape is:  ", np.shape(self._images))
