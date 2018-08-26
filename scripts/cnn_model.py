@@ -293,9 +293,16 @@ class CNN_Model():
     def adjust_batch_size(self, lists):
         ''' Makes sure batch size is evenly divisible by number of gpus. '''
         mod = len(lists[0]) % len(self.gpus)
-        for n in range(mod):
-            for l in lists:
-                l.append(l[-1])
+        to_add = len(self.gpus) - mod
+        new_lists = []
+        for i in range(len(lists)):
+            new_lists.append([])
+            for item in lists[i]:
+                new_lists[i].append(item)
+
+        for n in range(to_add):
+            for i, list_ in enumerate(lists):
+                new_lists[i].append(list_[-1])
 
         return lists
 
