@@ -241,7 +241,7 @@ class CNN_Model():
 
             # Compensate for uneven batch size by replicating last image.
             x_batch, y_true_batch, roi_true_batch  = self.adjust_batch_size([x_batch, y_true_batch, roi_true_batch])
-
+            print("**", len(x_batch))
 
             x_batch = x_batch.reshape(len(x_batch), img_size_flat)
             feed_dict = {self.x: x_batch, self.y_true: y_true_batch, self.keep_prob: 1.0}
@@ -294,15 +294,24 @@ class CNN_Model():
         ''' Makes sure batch size is evenly divisible by number of gpus. '''
         mod = len(lists[0]) % len(self.gpus)
         to_add = len(self.gpus) - mod
-        new_lists = []
-        for i in range(len(lists)):
-            new_lists.append([])
-            for item in lists[i]:
-                new_lists[i].append(item)
+        print("mod", mod, "to_add", to_add)
+
+        print(np.shape(lists[0]))
+        print(np.shape(lists[1]))
+        print(np.shape(lists[2]))
+
+        a, b, c = lists[0].tolist(), lists[1].tolist(), lists[2].tolist()
 
         for n in range(to_add):
-            for i, list_ in enumerate(lists):
-                new_lists[i].append(list_[-1])
+            a.append(lists[0][-1])
+            b.append(lists[1][-1])
+            c.append(lists[2][-1])
+
+        a, b, c = np.array(a), np.array(b), np.array(c)
+
+        print(np.shape(a))
+        print(np.shape(b))
+        print(np.shape(c))
 
         return lists
 
