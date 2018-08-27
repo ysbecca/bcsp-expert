@@ -239,6 +239,7 @@ class CNN_Model():
                             get_roi=True,
                             stop_at_epoch=True)
 
+
             # Compensate for uneven batch size by replicating last image.
             x_batch, y_true_batch, roi_true_batch  = self.adjust_batch_size([x_batch, y_true_batch, roi_true_batch])
             print("**", len(x_batch))
@@ -294,6 +295,10 @@ class CNN_Model():
         ''' Makes sure batch size is evenly divisible by number of gpus. '''
         mod = len(lists[0]) % len(self.gpus)
         to_add = len(self.gpus) - mod
+
+        if mod == 0:
+            return lists
+
         print("mod", mod, "to_add", to_add)
 
         print(np.shape(lists[0]))

@@ -177,11 +177,11 @@ class DataSet(object):
 
     else: 
 
-      # OTHERWISE, we have a full batch to return.
+      # OTHERWISE, we have a FULL batch to return.
       self._index_in_epoch += batch_size
       end = self._index_in_epoch
 
-      # If it's the last FULL batch of that last wsi, update epoch count and reset index pointer.
+      # If it's the last FULL batch of the LAST wsi, update epoch count and reset index pointer.
       future_batch_size_check = (self._num_images - end < batch_size) and not stop_at_epoch
       if self.wsi_index == 0 and (end == self._num_images or future_batch_size_check):
 
@@ -189,6 +189,11 @@ class DataSet(object):
         print("Updated self.epoch_count to (last complete batch):", self.epoch_count)
         self._index_in_epoch = 0
         self._epochs_completed += 1
+
+      # It's the last FULL batch of a NON-last wsi.
+      elif (self._num_images - end == batch_size) and self.wsi_index > 0:
+        self.load_next_wsi = True
+        self._index_in_epoch = 0
 
       print("Returning from", start, ":", end)
 
@@ -299,7 +304,8 @@ class DataSet(object):
     
     # Stack patches into blocks
     for i in range(np.shape(flat_patches)[1]):
-        self._images.append(np.concatenate((flat_patches[0][i], flat_patches[1][i], flat_patches[2][i]), axis=2))
+      # , flat_patches[2][i]
+        self._images.append(np.concatenate((flat_patches[0][i], flat_patches[1][i]), axis=2))
 
     flat_patches = None
     print("After reading image_id:", image_id, " shape is:  ", np.shape(self._images))
