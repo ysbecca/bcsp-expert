@@ -194,6 +194,7 @@ class DataSet(object):
       elif (self._num_images - end == batch_size) and self.wsi_index > 0:
         self.load_next_wsi = True
         self._index_in_epoch = 0
+        print("Last full batch of NON-last wsi.")
 
       print("Returning from", start, ":", end)
 
