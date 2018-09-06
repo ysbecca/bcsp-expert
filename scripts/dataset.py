@@ -292,11 +292,12 @@ class DataSet(object):
         # Now load the images from H5 file
         file = h5py.File(test_db_dir + p,'r+')
         new_patches = np.array(file['dataset']).astype('float32')
-        for patch in new_patches:
-            flat_patches[i].append(np.array(patch))
-            count+=1
-            if count % 5000 == 0:
-              print("Count...............................", count)
+        for j, patch in enumerate(new_patches):
+            if j % patch_sampling_interval == 0:
+                flat_patches[j].append(np.array(patch))
+                count+=1
+                if count % 5000 == 0:
+                    print("Count...............................", count)
 
         del new_patches
         file.close()
@@ -306,7 +307,7 @@ class DataSet(object):
     # Stack patches into blocks
     for i in range(np.shape(flat_patches)[1]):
       # , flat_patches[2][i]
-        self._images.append(np.concatenate((flat_patches[0][i], flat_patches[1][i]), axis=2))
+        self._images.append(np.concatenate((flat_patches[0][i], flat_patches[1][i], flat_patches[2][i]), axis=2))
 
     flat_patches = None
     print("After reading image_id:", image_id, " shape is:  ", np.shape(self._images))
