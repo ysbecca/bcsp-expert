@@ -294,7 +294,7 @@ class DataSet(object):
         new_patches = np.array(file['dataset']).astype('float32')
         for j, patch in enumerate(new_patches):
             if j % patch_sampling_interval == 0:
-                flat_patches[j].append(np.array(patch))
+                flat_patches[i].append(np.array(patch))
                 count+=1
                 if count % 5000 == 0:
                     print("Count...............................", count)

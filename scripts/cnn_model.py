@@ -481,8 +481,8 @@ class CNN_Model():
             # print("Epoch count:", dataset.epoch_count)
 
             x_batch, y_true_batch = dataset.next_batch(train_batch_size)
-            x_batch, y_true_batch = self.adjust_batch_size([x_batch, y_true_batch])
-
+            #x_batch, y_true_batch = self.adjust_batch_size([x_batch, y_true_batch])
+            print(np.shape(x_batch))
             x_batch = x_batch.reshape(len(x_batch), img_size_flat)
 
             #weights_ = generate_batch_weights(y_true_pseudo)
