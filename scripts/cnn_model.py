@@ -264,7 +264,10 @@ class CNN_Model():
         # print("Correct class:   ", correct_cls)
         # print("True ROI:        ", roi_true)
         
-        selected_roi = np.where(correct_cls, np.where(np.max(cls_pred, axis=1) > threshold, 1, 0), 0)
+        deselect = np.where(correct_cls, np.where(np.min(cls_pred, axis=1) < 1.0 - threshold, 1, 0), 0)
+        selected_roi = np.ones((len(correct_cls)))
+
+        selected_roi = selected_roi - deselect
         # print("Found ROI:       ", selected_roi)
 
         correct_roi = np.array(selected_roi == roi_true)
@@ -280,6 +283,7 @@ class CNN_Model():
             else:
                 recall = 0.0
         else:
+            print("Setting recall = acc")
             recall = acc
 
         if verbose:
