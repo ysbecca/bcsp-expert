@@ -16,19 +16,20 @@ import numpy as np
 from myconfig import *
 
 
-total_epochs = 24
+
+total_epochs = 10 
 total_k = 4
 roi_threshold = 0.5 # Lower threshold = higher recall, lower precision.
 
-save_model_after = 5 # Number of epochs after which we will save every OTHER model.
+save_model_after = 1 # Number of epochs after which we will save every OTHER model.
 show_roi_acc = 2
-epochs_to_save_preds_after = 10 # Train preds, not test.
+epochs_to_save_preds_after = 30 # Train preds, not test.
 
 
 start_time_all = time.time()
 
 
-cnn_model = CNN_Model(total_k=total_k, name="24August", pretrained_epochs=0, pretrained_model=False)
+cnn_model = CNN_Model(total_k=total_k, name="6Sept", pretrained_epochs=0, pretrained_model=False, learning_rate=1e-6)
 
 print(cnn_model)
 print("Model name:", cnn_model.name)
@@ -44,38 +45,37 @@ print("Training ", int(total_epochs / len(train_ks)), " iterations per k.")
 extra_epoch_count = 0
 
 for e in range(total_epochs):
-	for train_k in train_ks:
-		start_time = time.time()
-		cnn_model.train_model(train_k, valid_k, epochs=1, 
+        start_time = time.time()
+        for train_k in train_ks:
+                cnn_model.train_model(train_k, valid_k, epochs=1, 
 									verbose=True,
-									dropout_keep_prob=0.9,
+									dropout_keep_prob=0.60,
 									valid_interval=20,
 									show_valid_acc=False, 
 									train_interval=1)
 
-		if e % show_roi_acc == 0:
-			save_roi_preds = False
-			if e > epochs_to_save_preds_after:
-				save_roi_preds = True
-
-			print("")
-			print("ROI training accuracy based on ROI annotations:")
-			roi_pred, roi_true = cnn_model.get_roi_accuracy(cnn_model.train, 
+                if e % show_roi_acc == 0:
+                        save_roi_preds = False
+                        if e > epochs_to_save_preds_after:
+                                save_roi_preds = True
+                        print("")
+                        print("ROI training accuracy based on ROI annotations:")
+                        roi_pred, roi_true = cnn_model.get_roi_accuracy(cnn_model.train, 
 										threshold=roi_threshold,
 										show_conf_matrix=False,
 										verbose=True,
 										save=save_roi_preds)
-			extra_epoch_count +=1
-			print("")
+                        extra_epoch_count +=1
+                        print("")
 
-		end_time = time.time()
-		time_dif = end_time - start_time
-		print("Time usage for one epoch on ONE k-set: " + str(timedelta(seconds=int(round(time_dif)))))
-		print("++++++++++++")
+        end_time = time.time()
+        time_dif = end_time - start_time
+        print("Time usage for one epoch on ONE k-set: " + str(timedelta(seconds=int(round(time_dif)))))
+        print("++++++++++++")
 
-	if e > save_model_after and e % 2 == 0:
-		saved_model = cnn_model.save_model(train_k, epochs)
-		print("========= EPOCH", e, ", saved model:", saved_model, "===========")
+        if e + 1 >= save_model_after:
+                saved_model = cnn_model.save_model(train_k, epochs=e)
+                print("========= EPOCH", e, ", saved model:", saved_model, "===========")
 
 # Load test set and save ROI preds.
 cnn_model.train = None
@@ -115,5 +115,5 @@ print("++++++++++++")
 
 
 
-
+print(saved_model)
 

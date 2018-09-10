@@ -24,7 +24,6 @@ from skimage.color import hed2rgb
 from myconfig import *
 from helper_functions import *
 
-
 class DataSet(object):
 
   def __init__(self, wsi_ids, rois=[]):

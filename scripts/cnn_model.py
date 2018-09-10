@@ -141,8 +141,10 @@ class CNN_Model():
                                           use_pooling=True,
                                           max_pool_size=max_pools[i],
                                           use_relu=relu[i])
-            model = tf.nn.dropout(model, self.keep_prob)
-            print(model)
+            if i > 0:
+                # Don't dropout the input layer
+                model = tf.nn.dropout(model, self.keep_prob)
+                print(model)
 
 
         model, num_fc_features = cn.flatten_layer(model)
@@ -157,7 +159,7 @@ class CNN_Model():
                                      num_inputs=fc_sizes_[i],
                                      num_outputs=fc_sizes_[i+1],
                                      use_relu=True)
-                model = tf.nn.dropout(model, self.keep_prob)
+                #model = tf.nn.dropout(model, self.keep_prob)
 
             num_fc_features = fc_sizes_[-1]
 
@@ -278,13 +280,14 @@ class CNN_Model():
 
         cm = cn.plot_confusion_matrix(correct_roi, cls_pred=selected_roi, show_plt=show_conf_matrix)
         if len(cm) > 1: # If both arrays all 0 or all 1, then only 1-dim conf matrix.
-            if cm[1][1] + cm[1][0]:
-                recall = float(cm[1][1]) / (cm[1][1] + cm[1][0]) # TP / TP + FN
-            else:
-                recall = 0.0
+            tn, fp, fn, tp = cm.ravel()
+            recall = float(tp) / (tp + fn)
         else:
             print("Setting recall = acc")
             recall = acc
+
+        print("Conf matrix:")
+        print(cm)
 
         if verbose:
             msg = "ROI accuracy: {0:.1%} ({1} / {2})... Recall: {0:.1%}"
